@@ -11,6 +11,10 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from datetime import datetime
 import sys
+from simple_term_menu import TerminalMenu
+import re
+import calendar
+from colorama import Fore, Back, Style
 
 
 # If modifying these scopes, delete the file token.json.
@@ -24,6 +28,8 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 # The ID and range of a sample spreadsheet.
 SPREADSHEET_ID = '1bhmLdyBU9-rYmzBj-C6GwMXZCe9fvdb_hKd62S19Pvs'
 SAMPLE_RANGE_NAME = 'August Beta 2023!A6:O'
+collab_squads = ['34', '35', '42', '43', '54']
+
 
 territory_map = {}
 @dataclass
@@ -159,21 +165,6 @@ def update_values(spreadsheet_id, range_name, value_input_option,
         return error
     
 
-"""
-
-class SchedDate:
-    month: str
-    day: int
-    slot: str
-    squad1: int
-    squad1_covering: list
-    squad2: int
-    squad2_covering: list
-    squad3: int
-    squad3_covering: list
-
-"""    
-
 def read_template(template_month):
     schedule = []
     template_rows = read_template_calendar()
@@ -270,6 +261,15 @@ def to_slot_row(sched:SchedDate):
 
     return row
 
+
+def from_slot_row(row) -> SchedDate:
+    # [['0600 - 1800', '34\n[34, 43, 54]', '35\n[35, 43]'], ['1800 - 0600', '35\n[35, 42, 54]', '43\n[34, 43]']]
+
+    for slot in row:
+        print(f'{slot}')
+
+    return None
+
 def pad_slots(slots, num_needed):
     for i in range(0, (num_needed - len(slots))):
         slots.append(['', '', '',''])
@@ -352,11 +352,41 @@ def is_sheet_locked(target_tab):
         values = result.get('values', [])
         return len(values) > 0 and len(values[0]) > 0
     except HttpError as err:
-        print(err)
+        print(err)        
 
 def lock_sheet(target_tab):
         update_values(SPREADSHEET_ID, f'{target_tab}!A100', "USER_ENTERED",[['Locked']])
 
+
+def get_day_from_calendar(target_tab, month, day):
+    # print(f'Here is the range we are getting: {get_cell_range(month, day)}')
+    location = f'{target_tab}!{get_cell_range(month, day)}'
+    return get_data_from_calendar(target_tab, location)
+    # try:
+    #     service = build('sheets', 'v4', credentials=get_creds())
+
+    #     # Call the Sheets API
+    #     sheet = service.spreadsheets()
+
+    #     result = sheet.values().get(spreadsheetId=SPREADSHEET_ID,range=location).execute()
+    #     values = result.get('values', [])
+    #     return location, values
+    # except HttpError as err:
+    #     print(err)        
+
+
+def get_data_from_calendar(target_tab, location):
+    try:
+        service = build('sheets', 'v4', credentials=get_creds())
+
+        # Call the Sheets API
+        sheet = service.spreadsheets()
+
+        result = sheet.values().get(spreadsheetId=SPREADSHEET_ID,range=location).execute()
+        values = result.get('values', [])
+        return location, values
+    except HttpError as err:
+        print(err)        
 
 def read_territory_map():
     template_calendar = '1bhmLdyBU9-rYmzBj-C6GwMXZCe9fvdb_hKd62S19Pvs'
@@ -389,40 +419,347 @@ def read_territory_map():
         print(err)
 
 
+def prompt_menu(title, options):
+    terminal_menu = TerminalMenu(title=title, menu_entries= options)
+    menu_entry_index = terminal_menu.show()
+    selection = options[menu_entry_index]
+    
+    return re.sub('\[.\]\s', '', selection)
+
+collab_tabs = ['','','','','','','','Copy of August Beta 2023']
+
+def get_target():
+    options=['August Beta 2023', 'Copy of August Beta 2023']
+    return prompt_menu('Target template ', options)
+
+
+def template_to_calendar():
+    options = ['[1] Jan', '[2] Feb', '[3] Mar', '[4] Apr', '[5] May', '[6] Jun', '[7] Jul', '[8] Aug', '[9] Sep', '[a] Oct', '[b] Nov', '[c] Dec']
+    month = prompt_menu('Use Month from template', options)
+
+
+def prompt_time_slot():
+    time_selected = prompt_menu('Time slot:', ['[1] 0600 - 1800', '[2] 1800 - 0600', '[3] Custom'])
+    time_start = 0
+    time_end = 0
+
+    if time_selected == 'Custom':
+        time_start = int(input('Start time: '))
+        time_end = int(input('End time: '))
+    else:
+        match = re.search(r'(\d{4})\s-\s(\d{4})', time_selected)
+        time_start = int(match.group(1))
+        time_end = int(match.group(2))
+
+    return (time_start, time_end)
+
+
+def prompt_date():
+    month_num = int(input('Enter month [1-12]: '))
+    month = calendar.month_name[month_num]
+    day = int(input('Enter the day [1-31]: '))
+    return month_num, month, day
+
+
+def add_crew():
+    prompt_and_modify(True)
+
+
+def no_crew():
+    prompt_and_modify(False)
+
+
+def prompt_and_modify(is_add):
+    month_num, month, day = prompt_date()
+    squad = int(prompt_menu('Squad: ', collab_squads))
+    time_start, time_end = prompt_time_slot()
+
+    location, day_range = get_day_from_calendar(collab_tabs[month_num-1], month[:3], day)
+    os.system('clear')
+    print(f'{month}, {day}')
+
+    if is_add:
+        action = 'Add'
+    else: 
+        action = 'Remove'
+
+    print('Modifying Day:')
+    print('==============\n')
+    show_day(month, day, day_range)
+    print('')
+    print(Fore.RED + f'{action}: {time_start} - {time_end} Squad: {squad}' + Fore.RESET)
+    response = prompt_menu('\nConfirm?', ['[y] yes overwrite', '[n] no stop'])
+    if response.lower() != 'yes overwrite':
+        sys.exit()
+
+    change_calendar(is_add, month_num, day, time_start, time_end, squad, day_range, location)
+    audit_change(is_add, month_num, day, time_start, time_end, squad)
+
+
+def calculate_delta(start_time, end_time):
+    if end_time < start_time:
+        return (end_time + 2400) - start_time
+    else:
+        return end_time - start_time
+
+
+def audit_change(is_add, month_num, day, time_start, time_end, squad):
+    location = f'Audit!A2:F300'
+    location, values = get_data_from_calendar('Audit', location)
+    print(values)
+
+    month = calendar.month_name[month_num]
+
+    delta = calculate_delta(time_end, time_start)
+
+    if is_add:
+        action = 'Add Crew'
+        chg_sign = 1
+    else:
+        action = 'No Crew'
+        chg_sign = -1
+
+    values.append([month, day, squad, action, f'{time_start:04d} - {time_end:04d}', chg_sign*(delta)])
+    update_values(SPREADSHEET_ID, location, "USER_ENTERED",values)
+
+
+def change_calendar(is_add, month_num, day, time_start, time_end, squad, day_range, location):
+    (matrix1, matrix2) = expand_rows(day_range)
+
+    modify_matrix(matrix1, matrix2, time_start, time_end, squad, is_add)
+    
+    slots = build_slots(matrix1, matrix2)
+    slots = add_territories_to_slots(slots, month_num, day)
+
+    update_values(SPREADSHEET_ID, location, "USER_ENTERED",slots)
+
+
+def show_day(month, day, cal_day):
+    print(f'{month}, {day} 2023\n')
+    for event in cal_day:
+        print(event)
+
+
+def populate_matrix(matrix1, matrix2, row_start, row_end, squad):
+    def add_to_row(row, squad):
+        if row[0] == 100:
+            row[0] = squad
+        elif row[1] == 100:
+            row[1] = squad
+        else:
+            row[2] = squad
+        row.sort()
+
+    iter_start = row_start // 100
+    if row_start < row_end:
+        iter_end = row_end // 100
+    else:
+        iter_end = 24
+
+    for day1_row in range (iter_start, iter_end):
+        row = matrix1[day1_row]
+        add_to_row(row, squad)
+
+    if row_start > row_end:
+        iter_end = row_end // 100
+        if row_end < row_start:
+            iter_start = 0
+        else:
+            iter_start = row_start // 100
+
+        for day2_row in range(iter_start, iter_end):
+            row = matrix2[day2_row]
+            add_to_row(row, squad)
+
+
+def modify_matrix(matrix1, matrix2, time_start, time_end, squad, is_add):
+    def modify_row(row, squad):
+        if is_add:
+            target = 100
+            replace = squad
+        else:
+            target = squad
+            replace = 100
+
+        if row[0] == target:
+            row[0] = replace
+        elif row[1] == target:
+            row[1] = replace
+        else:
+            row[2] = replace
+        row.sort()
+
+    iter_start = time_start // 100
+    if time_start < time_end:
+        iter_end = time_end // 100
+    else:
+        iter_end = 24
+
+    for day1_row in range (iter_start, iter_end):
+        row = matrix1[day1_row]
+        modify_row(row, squad)
+
+    if time_start > time_end:
+        iter_end = time_end // 100
+        if time_end < time_start:
+            iter_start = 0
+        else:
+            iter_start = time_start // 100
+
+        for day2_row in range(iter_start, iter_end):
+            row = matrix2[day2_row]
+            modify_row(row, squad)
+
+def init_matrix(matrix):
+    for row in range(23):
+        for col in range(3):
+            matrix[row][col] = ''
+
+
+def expand_rows(day_range):
+    # Takes a day and returns a 24 x 3 array
+
+    matrix1 = [[100 for _ in range(3)] for _ in range(24)]
+    matrix2 = [[100 for _ in range(3)] for _ in range(24)]
+
+
+    for line in day_range:
+        # print(line)
+        time_re = r'(\d{4})\s-\s(\d{4})'
+        match = re.search(time_re, line[0])
+        # print(f'Start: {match.group(1)} End: {match.group(2)}')
+
+        for col in line:
+            s = re.search(r'(\d{2})\n', col, re.M)
+            if s:
+                populate_matrix(matrix1, matrix2, int(match.group(1)), int(match.group(2)), int(s.group()))
+
+    # populate_matrix(matrix1, matrix2, 600, 1800, 34)
+    # populate_matrix(matrix1, matrix2, 1800, 600, 43)
+    # populate_matrix(matrix1, matrix2, 900, 800, 54)
+    # populate_matrix(matrix1, matrix2, 0, 2000, 42)
+
+    # show_matricies(matrix1, matrix2)
+
+    return matrix1, matrix2
+
+
+def build_slots(matrix1, matrix2):
+
+    slots = []
+    last = matrix1[0]
+    start_time = 0
+
+    for day1_ctr in range(1, 24):
+        if matrix1[day1_ctr] != last:
+            if last != [100,100,100]:
+                slots.append([f'{start_time:04d} - {(day1_ctr)*100:04d}'] + last)
+            start_time = (day1_ctr)*100
+            last = matrix1[day1_ctr]
+
+    for day1_ctr in range(0, 24):
+        if matrix2[day1_ctr] != last:
+            if last != [100,100,100]:
+                slots.append([f'{start_time:04d} - {(day1_ctr)*100:04d}'] + last)
+            start_time = (day1_ctr)*100
+            last = matrix2[day1_ctr]
+
+    return slots
+
+
+def add_territories_to_slots(slots, month, day):
+
+    new_slots = []
+    for slot in slots:
+        row = [value for value in slot if value != 100]
+        coverage = territory_map.get(str(row[1:]).replace('[','').replace(']','').replace(' ', ''))
+        squads = list(coverage.keys())
+        if len(squads) == 3:
+            sched = SchedDate(month, day, row[0], squads[0], coverage.get(squads[0]), squads[1], coverage.get(squads[1]), squads[2], coverage.get(squads[2]))
+        elif len(squads) == 2:
+            sched = SchedDate(month, day, row[0], squads[0], coverage.get(squads[0]), squads[1], coverage.get(squads[1]))
+        else:
+            sched = SchedDate(month, day, row[0], squads[0], coverage.get(squads[0]))
+
+        new_slots.append(to_slot_row(sched))
+
+    return pad_slots(new_slots, 6)
+
+
+
+def show_matricies(matrix1, matrix2):
+
+    for row in range(0, 24):
+        print(f'[{row}] {matrix1[row]}')
+
+    print('=====')
+
+    for row in range(0, 24):
+        print(f'[{row}] {matrix2[row]}')
+            
+
+
+"""
+class SchedDate:
+    month: str
+    day: int
+    slot: str
+    squad1: int
+    squad1_covering: list
+    squad2: int = None
+    squad2_covering: list = None
+    squad3: int = None
+    squad3_covering: list = None
+
+
+"""
+
 
 if __name__ == '__main__':
-    main()
 
-    # update_values(SPREADSHEET_ID,
-    #             "August Beta 2023!B6:D7", "USER_ENTERED",
-    #             [
-    #                 ['A', 'B'],
-    #                 ['C', 'D']
-    #             ])
+    is_add = True
+    month_num = 8
+    day = 13
+    time_start = 900
+    time_end = 2100
+    squad = 54
+    audit_change(is_add, month_num, day, time_start, time_end, squad)
 
-    # update_values(SPREADSHEET_ID,
-    #             "August Beta 2023!B25:E31", "USER_ENTERED",
-    #             [
-    #                 ['0600 - 0900', '54\n[34,43,54]','42\n[35,42]'],
-    #                 ['0900 - 1800', '54\n[34,35,43,54]', '54\n[34,35,43,54]', '42\n[42]'],
-    #                 ['1800 - 2100', '54\n[35,43,54]', '43n[34,43]'],
-    #                 ['2100 - 0600', '43\n[All]']
-    #             ])
-    
+    # Remove 4 hours
+    is_add = False
+    time_start = 2100
+    time_end = 200
+    squad = 42
+    audit_change(is_add, month_num, day, time_start, time_end, squad)
+
+    sys.exit()
+
 
     read_territory_map()
-    build_calendar('Aug', 'August Beta 2023')
+    options = ["[n] New month From Template", "[x] No Crew", "[a] Add Crew"]
 
-    # print(is_sheet_locked('August Beta 2023'))
-    # lock_sheet('August Beta 2023')
-    # print(is_sheet_locked('August Beta 2023'))
+    selection = prompt_menu('Main actions', options)
+    print(f"You have selected {selection}!")
 
-    # for day in range(1,31):
-    #     print(f'{day} {get_cell_range("Aug", day)}')
+    read_territory_map()
+    os.system('clear')
+
+    match selection:
+        case 'New month From Template':
+
+            build_calendar('Aug', 'Copy of August Beta 2023')
+        case 'No Crew':
+            no_crew()
+        case 'Add Crew':
+            add_crew()
+        case '_':
+            print('Invalid menu option!!')
 
 """
 References: 
 https://developers.google.com/sheets/api/guides/conditional-format
+
+https://pypi.org/project/colorama/
 
 Handy for combinations: https://www.dcode.fr/combinations
 """
