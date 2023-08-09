@@ -16,6 +16,8 @@ import re
 import calendar
 from colorama import Fore, Back, Style
 import json
+from datetime import timedelta, date
+from collections import defaultdict
 
 
 # If modifying these scopes, delete the file token.json.
@@ -27,12 +29,13 @@ import json
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 # The ID and range of a sample spreadsheet.
-# COLLAB_CALENDAR_SPREADSHEET_ID = '1bhmLdyBU9-rYmzBj-C6GwMXZCe9fvdb_hKd62S19Pvs' # Prod
+#COLLAB_CALENDAR_SPREADSHEET_ID = '1bhmLdyBU9-rYmzBj-C6GwMXZCe9fvdb_hKd62S19Pvs' # Prod
 COLLAB_CALENDAR_SPREADSHEET_ID = '1o_DZ96VdunbhXac8wYDdT_Xl6AR7Vgbuc6cwi5OWgs0' # Beta
 
 TEMPLATE_TAB_RANGE = 'Template!A1:R54'
 TERRITORY_TAB_2_RANGE = 'Territories!B2:F11'
 TERRITORY_TAB_3_RANGE = 'Territories!H2:N11'
+CONTACTS_TAB = 'Contacts!A3:C7'
 
 SAMPLE_RANGE_NAME = 'August 2023!A6:0'
 # SAMPLE_RANGE_NAME = 'August Beta 2023!A6:O'
@@ -478,6 +481,32 @@ def read_territory_map():
         print(err)
 
 
+def read_contacts_map():
+    try:
+        service = build('sheets', 'v4', credentials=get_creds())
+        contacts = {}
+
+        # Call the Sheets API
+        sheet = service.spreadsheets()
+
+        result = sheet.values().get(spreadsheetId=COLLAB_CALENDAR_SPREADSHEET_ID,range=CONTACTS_TAB).execute()
+        values = result.get('values', [])
+
+        for row in values:
+            contacts[row[0]] = {'chief': [], 'to':[], 'cc':[]}
+            if len(row) >= 2:
+                contacts[row[0]]['chief'] = row[1].replace(' ', '').split(',')
+            if len(row) >= 3:
+                contacts[row[0]]['to'] = row[2].replace(' ', '').split(',')
+            if len(row) >= 4:
+                contacts[row[0]]['to'] = row[3].replace(' ', '').split(',')
+
+        return contacts
+    except HttpError as err:
+        print(err)
+
+
+
 def prompt_menu(title, options):
     terminal_menu = TerminalMenu(title=title, menu_entries= options)
     menu_entry_index = terminal_menu.show()
@@ -569,7 +598,7 @@ def calculate_delta(start_time, end_time):
 def audit_change(is_add, month_num, day, time_start, time_end, squad):
     location = f'Audit!A2:G300'
     location, values = get_data_from_calendar('Audit', location)
-    print(values)
+    # print(values)
 
     month = calendar.month_name[month_num]
     update_ts = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -674,6 +703,7 @@ def modify_matrix(matrix1, matrix2, time_start, time_end, squad, is_add):
 
         populate_matrix(matrix1, iter_start, iter_end)
 
+    iter_end = time_end // 100
     if time_end <= 600:
         if time_start < 600:
             iter_start = time_start //100
@@ -694,29 +724,43 @@ def expand_rows(day_range):
     matrix1 = [[100 for _ in range(3)] for _ in range(24)]
     matrix2 = [[100 for _ in range(3)] for _ in range(24)]
 
+    """
+    Note: When iterating over lines, they can contain any of the following: 
+    ['0600 - 0900', '54\n[All]']
+    ['0900 - 1800', '54 (2 trucks)\n[All]']
+    ['1800 - 2100', '43\n[34, 43]', '54 \n[35, 42, 54]']
+    """
+
     for line in day_range:
-        print(f'Line in day range: {line}')
         time_re = r'(\d{4})\s-\s(\d{4})'
         match = re.search(time_re, line[0])
-        # print(f'Start: {match.group(1)} End: {match.group(2)}')
+        start = int(match.group(1))
+        end = int(match.group(2))
 
-        for col in line:
-            s = re.search(r'(\d{2})\n', col, re.M)
-            if s:
-                populate_matrix(matrix1, matrix2, int(match.group(1)), int(match.group(2)), int(s.group()))
-
-    # populate_matrix(matrix1, matrix2, 600, 1800, 34)
-    # populate_matrix(matrix1, matrix2, 1800, 600, 43)
-    # populate_matrix(matrix1, matrix2, 900, 800, 54)
-    # populate_matrix(matrix1, matrix2, 0, 2000, 42)
-
-    # show_matricies(matrix1, matrix2)
+        for col in line[1:]:
+            if 'truck' in col.lower():
+                s = re.search(r'(\d{2})\s\(\s?(\d)\s?\w+\)\n', col, re.M)
+                if s:
+                    print(f'Squad: {s.group(1)} Number of trucks: {s.group(2)}')
+                    squad = int(s.group(1))
+                    num_trucks = int(s.group(2))
+                    for truck in range(num_trucks):
+                        populate_matrix(matrix1, matrix2, start, end, squad)
+            else:
+                s = re.search(r'(\d{2})\s?\n', col, re.M)
+                if s:
+                    squad = int(s.group())
+                    populate_matrix(matrix1, matrix2, start, end, squad)
 
     return matrix1, matrix2
 
 
 def split_time_slot(time_slot):
-    times = time_slot[0].split('-')
+    return get_times_from_range(time_slot[0])
+
+
+def get_times_from_range(time_range):
+    times = time_range.split('-')
     return int(times[0].strip()), int(times[1].strip())
 
 
@@ -728,31 +772,27 @@ def make_no_crew_slot(start_time, end_time):
 
 def mark_missing_slots(slots):
 
+    print(f'Slots before inserting missing: ')
+    print(slots)
     if len(slots) == 0:
-        return [make_no_crew_slot(600 - 600)]
+        return [make_no_crew_slot(600, 600)]
 
     new_slots = []
-    is_first = True
     start_time, end_time = split_time_slot(slots[0])
     if start_time > 600:
-        first_slot = make_no_crew_slot(600, start_time)
-        new_slots.append(first_slot)
+        new_slots.append(make_no_crew_slot(600, start_time))
+    new_slots.append(slots[0])
 
-    for idx, slot in enumerate(slots):
-        if is_first:
-            is_first = False
+    for slot in slots[1:]:
+        _prev_start, prev_end = split_time_slot(new_slots[-1])
+        curr_start, _curr_end = split_time_slot(slot)
+        if prev_end == curr_start:
+            new_slots.append(slot)
         else:
-            prev_start, prev_end = split_time_slot(slots[(idx-1)])
-            curr_start, curr_end = split_time_slot(slot)
-            if prev_end == curr_start:
-                new_slots.append(slots[(idx-1)])
-            else:
-                filler = make_no_crew_slot(prev_end, curr_start)
-                new_slots.append(filler)
-                new_slots.append(slots[(idx-1)])
+            new_slots.append(make_no_crew_slot(prev_end, curr_start))
+            new_slots.append(slot)
 
-    new_slots.append(slots[-1])
-    last_slot_start, last_slot_end = split_time_slot(slots[-1])
+    last_slot_start, last_slot_end = split_time_slot(new_slots[-1])
     if last_slot_end < 600 or last_slot_end > 700:
         new_slots.append(make_no_crew_slot(last_slot_end, 600))
 
@@ -805,7 +845,6 @@ def add_territories_to_slots(slots, month, day):
         #  - look up territories, given the squads scheduled
         #  - Create a SchedDate object for this slot
         sched = create_shift(month, day, slot, scheduled_squads)
-        print(f'Created sched: {sched}')
         new_slots.append(to_slot_row(sched))
 
     return pad_slots(new_slots, 6)
@@ -856,10 +895,165 @@ def revert():
             print(Fore.GREEN + 'Reverted' + Fore.RESET)
 
 
+def get_email_log_dir_name(send_date, squad):
+    return f'{config_dir}/email_log/{send_date}/{squad}'
+
+
+def should_send_email(today, squad, shifts, recipients):
+    send_date = today.strftime('%Y%m%d')
+    log_dir_name = get_email_log_dir_name(send_date, squad)
+    if not os.path.exists(log_dir_name):
+        print('The dir does not exist!!')
+        return True
+    
+    list_of_files = sorted( filter( lambda x: os.path.isfile(os.path.join(log_dir_name, x)),
+                        os.listdir(log_dir_name) ) )
+    x=len(list_of_files)
+    if len(list_of_files) == 0:
+        return True
+    
+    with open(f'{log_dir_name}/{list_of_files[0]}') as rdr:
+        email_log = json.load(rdr)
+    
+    is_diff = email_log["shifts"] == shifts
+    if not is_diff:
+        print(f'shifts changed - sending email: ')
+        print(f'{email_log["shifts"]}')
+        print(f'{shifts}')
+
+    return not is_diff
+
+
+def log_sent_email(squad, send_date, shifts, recipients):
+    log_dir_name = get_email_log_dir_name(send_date, squad)
+    os.makedirs(log_dir_name, exist_ok=True)
+
+    email_log = {
+        'recipients': recipients,
+        'shifts': shifts
+    }
+
+    filename = f'{log_dir_name}/{int(datetime.now().timestamp())}.json'
+    with open(filename, 'w') as writer:
+        json.dump(email_log, writer)
+
+    print(Fore.GREEN + f'{filename}' + Fore.RESET)
+
+
+def send_email(contacts, today, squad, shifts, subject, body):
+    # Send it here!
+    recipients = contacts.get(squad)
+    if recipients is None:
+        print(f'Unable to find recipients for squad: {squad} in contact information')
+
+    print('-------')
+    print(f'Sending email To: {recipients["to"]} Cc: {recipients["cc"]} Subject: {subject}')
+    print(f'{body}')
+    print('')
+    # TODO: Make magic here!!!
+    send_date = today.strftime('%Y%m%d')
+    log_sent_email(squad, send_date, shifts, recipients)
+
+
+def combine_squad_slots(slots_by_squad):
+    new_slots_by_squad = defaultdict(list)
+    for squad, slots in slots_by_squad.items():
+        new_slots = []
+        new_slots.append(slots[0])
+        if len(slots) > 1:
+            for slot in slots[1:]:
+                prev_start, prev_end = get_times_from_range(new_slots[-1])
+                start, end = get_times_from_range(slot)
+                if prev_end == start:
+                    new_slots[-1] = f'{prev_start} - {end}'
+        new_slots_by_squad[squad] = new_slots
+    
+    return new_slots_by_squad
+
+
+def confirm_emails(emails):
+    for email in emails:
+        print(f'Sending: ')
+
+
+def notify_of_shift(contacts, month, day, shifts_by_squad):
+    today = datetime.now()
+    target_date = datetime.strptime(f'{month}-{day}-{today.year}', '%m-%d-%Y').strftime('%A %b %d, %Y')
+    email_text = """Dear {squad} Leadership,
+    This is to notify you that your squad has upcoming shift(s) on {formatted_date}.
+
+    Your squad is scheduled to ride on the following times: 
+    {shifts}
+
+    Kindly notify The Collaborative Leadership team if you have any conflicts.
+
+    Warm regards,
+
+    Station 95 Collaborative
+    """
+    emails = []
+    for squad, shifts in shifts_by_squad.items():
+        if squad in contacts:
+            if should_send_email(today, squad, shifts, contacts[squad]):
+                body = email_text.format(
+                    squad=squad,
+                    formatted_date=target_date,
+                    shifts='\n'.join(shifts)
+                )
+                subject = f'95 Collaborative upcoming shift notification for {target_date}'
+                emails.append({'contacts': contacts, 'squad': squad, 'subject': subject, 'body': body})
+
+    confirm_emails(emails)
+                # send_email(contacts, today, squad, shifts, subject, body)
+
+
+def get_shifts_by_squad(month, day):
+    location, day_range = get_day_from_calendar(collab_tabs[month-1], month, day)
+
+    slots_by_squad = defaultdict(list)
+    for slot in day_range:
+        for squad_slot in slot[1:]:
+            squad = squad_slot.split('\n')[0]
+            slots_by_squad[squad].append(slot[0])
+
+    return combine_squad_slots(slots_by_squad)
+
+
+
+def notify_crews2():
+    os.system('clear')
+
+    days = 3
+    while True:
+        future_date = date.today() + timedelta(days=days)
+        print(f'Will send notification about shift {days} from today ({future_date})')
+        if prompt_menu('Continue? ', ['[c] Continue', '[n] Change Date']) == 'Change Date':
+            days = int(input(f'Enter number of days from now: '))
+        else:
+            break
+    
+    shifts = get_shifts_by_squad(future_date.month, future_date.day)
+    contacts = read_contacts_map()
+    notify_of_shift(contacts, future_date.month, future_date.day, shifts)
+
+
+def notify_crews():
+    month = 8
+    day = 5
+    shifts = get_shifts_by_squad(month, day)
+    contacts = read_contacts_map()
+    notify_of_shift(contacts, month, day, shifts)
+
+
 if __name__ == '__main__':
 
     os.system('clear')
-    options = ["[n] New month From Template", "[x] No Crew", "[a] Add Crew", "[r] Revert Previous"]
+    if COLLAB_CALENDAR_SPREADSHEET_ID == '1o_DZ96VdunbhXac8wYDdT_Xl6AR7Vgbuc6cwi5OWgs0':
+        print(Back.GREEN + "DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO" + Back.RESET)
+    else:
+        print(Back.RED + "PROD PROD PROD PROD PROD PROD PROD PROD PROD PROD PROD PROD PROD PROD PROD " + Back.RESET)
+
+    options = ["[n] New month From Template", "[x] No Crew", "[a] Add Crew", "[r] Revert Previous", "[e] Notify"]
 
     selection = prompt_menu('Main actions', options)
     print(f"You have selected {selection}!")
@@ -876,6 +1070,8 @@ if __name__ == '__main__':
             add_crew()
         case 'Revert Previous':
             revert()
+        case 'Notify':
+            notify_crews()
         case '_':
             print('Invalid menu option!!')
 
@@ -887,3 +1083,8 @@ https://pypi.org/project/colorama/
 
 Handy for combinations: https://www.dcode.fr/combinations
 """
+
+# TODO: (Done) For 8/6, add 43 from 2100 - 0600 - Seems to remove 54   
+# TODO: For weekday, earliest time is 1800 - do not create "no crew" for 0600 - 1800
+# TODO: Audit had incorrect days added
+# TODO: Revert - should also remove entry in Audit table
