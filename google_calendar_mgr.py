@@ -10,6 +10,8 @@ import re
 import os
 from bcolors import bcolors
 import traceback
+import gspread
+import gspread_formatting as gsf 
 
 
 # The ID and range of a sample spreadsheet.
@@ -28,14 +30,24 @@ class GCal:
     CONTACTS_TAB = 'Contacts!A3:C7'
     SAMPLE_RANGE_NAME = 'August 2023!A6:0'
     AUDIT_RANGE = f'Audit!A2:G300'
+
+    HOURS_COMMITTED = 'B69'
+    HOURS_TO_DATE = 'B70'
+    TANGO_HOURS = 'B71'
+
     # CALENDAR_TEMPLATE_LOCATION = 'Shift Template!A1:F41'
-    CALENDAR_TEMPLATE_LOCATION = 'Shift Template!B42:G80'
+    CALENDAR_TEMPLATE_LOCATION = 'Shift Template!A1:G300'
+
     calendar_tab = None
 
 
     def __init__(self, spreadsheet_id, config_dir=None):
         self.set_spreadsheet_id(spreadsheet_id)
         self.config_dir = config_dir
+
+        gc = gspread.service_account()
+        self.spreadsheet_for_gspread = gc.open_by_key(spreadsheet_id)
+        # worksheet = sh.worksheet('September 2023')
 
 
     def set_calendar_tab(self, calendar_tab):
@@ -116,6 +128,18 @@ class GCal:
             print(f"An error occurred: {error}")
             return error
 
+    def get_month_row(self, day, days_on_first_row):
+        """
+        On a calendar that starts with Sunday and ends with Saturday,
+        On which row does the given day fall?  
+        """
+        if day <= days_on_first_row:
+            month_row = 0
+        else:
+            month_row = int(((day - days_on_first_row) + 6) / 7)
+
+        return month_row    
+
 
     def get_cell_range(self, target_date):
         row_offset = 5
@@ -129,14 +153,18 @@ class GCal:
 
         days_offsets = [('F', 'I'),('J', 'M'),('N','Q'),('R','U'),('V','Y'),('Z', 'AC'),('B', 'E')]
 
+        day_num = 0
         first_day_of_month = datetime.strptime(f'{target_date.year}-{target_date.month}-01', '%Y-%m-%d')
-        days_on_first_row = 7 - first_day_of_month.weekday()
-
-        #  Month row = 0 - 6 (which row in the calendar, not physical row)
-        if target_date.day < days_on_first_row:
-            month_row = 0
+        # Since 0 = Mon and 6 = Sunday, but our cally starts with Sunday, adjust the first day of month
+        # so that Sunday = 0 and Saturday = 6
+        if first_day_of_month.weekday() == 6:
+            day_num = 0
         else:
-            month_row = int(((target_date.day - days_on_first_row) + 7) / 7)
+            day_num += 1
+
+        days_on_first_row = 7 - day_num
+
+        month_row = self.get_month_row(target_date.day, days_on_first_row)
 
         # print(f'Day of week for: {target_month} day: {day} is {day_of_week}')
         col_tuple = days_offsets[day_of_week]
@@ -203,6 +231,27 @@ class GCal:
                            "USER_ENTERED",
                             self.get_data_from_calendar(self.AUDIT_RANGE) + changes    
                             )
+
+
+    def populate_hours_committed(self, hours_row):
+        location = f'{self.calendar_tab}!{self.HOURS_COMMITTED}'
+        self.update_values(location,
+                           "USER_ENTERED",
+                           hours_row)
+        
+
+    def populate_hours_to_date(self, hours_row):
+        location = f'{self.calendar_tab}!{self.HOURS_TO_DATE}'
+        self.update_values(location,
+                           "USER_ENTERED",
+                           hours_row)
+    
+
+    def populate_tango_hours(self, hours_row):
+        location = f'{self.calendar_tab}!{self.TANGO_HOURS}'
+        self.update_values(location,
+                           "USER_ENTERED",
+                           hours_row)
 
 
     def read_territory_map(self):

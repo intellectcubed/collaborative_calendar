@@ -17,6 +17,7 @@ from models import ModifyShiftRequest, SchedDate
 from collab_cal_mgr import CollabCalendarManager
 from calendar_slot_utils import split_timeslot
 from datetime import datetime
+from calendar import monthrange
 from google_calendar_mgr import PROD_COLLAB_CALENDAR_SPREADSHEET_ID, BETA_COLLAB_CALENDAR_SPREADSHEET_ID, GCal
 
 google_mgr: GCal = None
@@ -42,7 +43,7 @@ def prompt_menu_multiselect(title, options, show_multi_select_hint=False):
 
 def prompt_for_int(prompt, default_value=None):
     if default_value is not None:
-        prompt += f"(Default: {default_value})"
+        prompt += f"(Default: {default_value}) "
 
     val_in = input(prompt)
     if val_in == '':
@@ -84,20 +85,24 @@ def build_calendar():
     """Build calendar from the templates"""
     print(f'Enter date to build')
     target_date = get_target_date()
+    # Assumes tab is named Month Year (eg: October 2023)
+    tab = target_date.strftime('%B %Y')
+
 
     rows = collab_cal_manager.get_calendar_template()
     # Columns: [day, slot, squad1, squad2, squad3, squad4]
     changes_by_day = []
     prev_day = -1
     for row in rows:
-        if row[0] != prev_day:
-            changes = []
-            changes_by_day.append(changes)
-            prev_day = row[0]
+        if row[0] == tab:
+            if row[1] != prev_day:
+                changes = []
+                changes_by_day.append(changes)
+                prev_day = row[1]
 
-        start, end = split_timeslot(row[1])
-        for squad in row[2:]:
-            changes.append(ModifyShiftRequest(start, end, int(squad), True))
+            start, end = split_timeslot(row[2])
+            for squad in row[3:]:
+                changes.append(ModifyShiftRequest(start, end, int(squad), True))
 
     # Now apply the changes
     day = 0
@@ -191,26 +196,51 @@ def assign_tango():
     collab_cal_manager.assign_tango(target_date, tango_changes)
 
 
-def tally_shifts():
+def tally_shifts(target_date=None, save_tally=False):
 
-    target_date = get_target_date()    
+    tally_to_date = False
+    if target_date is None:
+        target_date = get_target_date()
+
+        os.system('clear')
+        span = prompt_menu('Tally Month or ToDate', ["[m] Month", "[t] To Date"])
+        tally_to_date = (span != 'Month')
+
+    last_day_of_month = monthrange(target_date.year, target_date.month)[1]
+    if tally_to_date:
+        rel_date_val = input(f'Enter relative date [1 - {last_day_of_month}] (Default: {datetime.now().strftime("%d")}) ')
+        if rel_date_val == '':
+            relative_days = datetime.now().strftime("%d")
+        else:
+            relative_days = int(rel_date_val)
+    else:
+        relative_days = last_day_of_month
+
+
     current_time_millis = int(round(time.time() * 1000))
     snapshot_path = f'{config_dir}/calendar_snapshots/{target_date.month}/{target_date.year}'
     if not os.path.exists(snapshot_path):
         os.makedirs(snapshot_path)
         
     with open(f'{snapshot_path}/snapshot_{current_time_millis}.json', 'w') as snappy:
-        (hours_by_squad, tango_hours, calendar_warnings) = collab_cal_manager.tally_shifts(target_date, snappy)
+        (hours_by_squad, tango_hours, calendar_warnings) = collab_cal_manager.tally_shifts(target_date, 
+                                                                                           relative_days, snappy)
     print(f'Tally:')
     print(f'Hours by squad: {hours_by_squad}')
     print(f'Tango hours: {tango_hours}')
     print(f'Warnings: {calendar_warnings}')
 
+    if save_tally:
+        collab_cal_manager.save_tally(hours_by_squad, tango_hours, tally_to_date)
+
+    return (hours_by_squad, tango_hours, calendar_warnings)
+
 
 def assign_tangos():
     target_date = get_target_date()    
     # (hours_by_squad, tango_hours, calendar_warnings) = collab_cal_manager.tally_shifts(target_date)
-    tango_hours = {34:0, 35:0, 42:0, 43:0, 54:0}
+    (hours_by_tango, tango_hours, calendar_warnings) = tally_shifts(target_date)
+    # tango_hours = {34:0, 35:0, 42:0, 43:0, 54:0}
     new_tangos = collab_cal_manager.assign_tangos(target_date=target_date, tango_hours=tango_hours)
     print(new_tangos)
         
@@ -286,7 +316,7 @@ def select_tab():
 
     current_tab = datetime.now().strftime('%B %Y')
     if current_tab in tabs:
-        if input(f'Use current tab? {current_tab} y/n ').lower() == 'y':
+        if input(f'Use current tab? {bcolors.OKGREEN}{current_tab}{bcolors.ENDC} y/n ').lower() == 'y':
             google_mgr.set_calendar_tab(current_tab)
             return current_tab
     print(f'current tab: {current_tab} is not in tabs: {tabs}')
@@ -344,7 +374,7 @@ if __name__ == '__main__':
         case 'Populate Tangos':
             assign_tangos()
         case 'Tally Shifts':
-            tally_shifts()
+            tally_shifts(save_tally=True)
         case 'Read Territories':
             read_territory_map()
         case '_':

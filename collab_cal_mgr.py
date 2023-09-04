@@ -2,7 +2,6 @@ from calendar_slot_utils import add_to_calendar, remove_from_calendar, get_slots
 from calendar_formatter import google_to_shifts, day_from_shifts, to_squad_shifts, shifts_to_google, pad_day_matrix, CALENDAR_ROWS, CALENDAR_COLS
 from models import ModifyShiftRequest, SchedDate, SquadShift, MAX_TRUCKS_PER_SHIFT
 from google_calendar_mgr import LOCATION_RE
-from calendar import monthrange
 from collections import defaultdict
 import datetime
 import sys
@@ -10,6 +9,7 @@ import os
 import re
 import json
 from bcolors import bcolors
+from calendar import monthrange
 import traceback
 
 class CollabCalendarManager:
@@ -430,7 +430,7 @@ class CollabCalendarManager:
         json.dump(month, snapshot_file, indent=4)
 
 
-    def tally_shifts(self, target_date, snapshot_file=None):
+    def tally_shifts(self, target_date, relative_days, snapshot_file=None):
         """Iterate over month, count hours scheduled, tango hours
         Also validates each shift
         ### Returns (tuple): 
@@ -441,7 +441,7 @@ class CollabCalendarManager:
         shift_days = defaultdict(list)
         tango_hours = {34:0, 35:0, 42:0, 43:0, 54:0}
         days = []
-        for day in range(1, monthrange(target_date.year, target_date.month)[1]):
+        for day in range(1, relative_days):
             curr_date = target_date.replace(day=day)
             print(f'{bcolors.OKBLUE} Processing day: {day} {bcolors.ENDC}')
             day_rows = self.gcal.get_day_from_calendar(curr_date)
@@ -470,6 +470,23 @@ class CollabCalendarManager:
 
         self.save_day_snapshot(snapshot_file, days)
         return (hours_by_squad, tango_hours, calendar_warnings)   
+    
+
+    def save_tally(self, shift_hours, tango_hours, is_actual):
+
+        keys = sorted(shift_hours.keys())
+        hours = []
+        tango = []
+
+        for key in keys():
+            hours.append(shift_hours[key])
+            tango.append(tango_hours[key])
+
+        if is_actual:
+            self.gcal.populate_hours_to_date([hours])
+        else:
+            self.gcal.populate_hours_committed([hours])
+        self.gcal.populate_tango_hours(tango)
 
 
     def find_squad_with_least_tango(self, tango_hours, duty_squads):

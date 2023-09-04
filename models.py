@@ -8,6 +8,7 @@ class SquadShift:
     squad: int
     number_of_trucks: int
     squad_covering: list
+    first_responder: bool = False
 
 
 @dataclass
