@@ -31,8 +31,8 @@ class GCal:
     SAMPLE_RANGE_NAME = 'August 2023!A6:0'
     AUDIT_RANGE = f'Audit!A2:G300'
 
-    HOURS_COMMITTED = 'B69'
-    HOURS_TO_DATE = 'B70'
+    HOURS_COMMITTED = 'B69:F69'
+    HOURS_TO_DATE = 'B70:F70'
     TANGO_HOURS = 'B71'
 
     # CALENDAR_TEMPLATE_LOCATION = 'Shift Template!A1:F41'
@@ -160,7 +160,7 @@ class GCal:
         if first_day_of_month.weekday() == 6:
             day_num = 0
         else:
-            day_num += 1
+            day_num = first_day_of_month.weekday() + 1
 
         days_on_first_row = 7 - day_num
 

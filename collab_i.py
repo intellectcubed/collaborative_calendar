@@ -13,18 +13,17 @@ import os
 import sys
 import time
 import re
-from models import ModifyShiftRequest, SchedDate
+from models import ModifyShiftRequest, SchedDate, SquadShift
 from collab_cal_mgr import CollabCalendarManager
 from calendar_slot_utils import split_timeslot
 from datetime import datetime
 from calendar import monthrange
-from google_calendar_mgr import PROD_COLLAB_CALENDAR_SPREADSHEET_ID, BETA_COLLAB_CALENDAR_SPREADSHEET_ID, GCal
 
-google_mgr: GCal = None
 collab_cal_manager: CollabCalendarManager = None
 current_tab: str = None
 territory_map = None
 config_dir = '/Users/georgenowakowski/Downloads/collab_config'
+target_date = None
 
 def prompt_menu(title, options):
     terminal_menu = TerminalMenu(title=title, menu_entries= options)
@@ -53,12 +52,9 @@ def prompt_for_int(prompt, default_value=None):
 
 
 def get_target_date():
-    if len(sys.argv) > 2:
-        try:
-            return datetime.strptime(sys.argv[2], '%Y%m%d')
-        except Exception as e:
-            print(f'Parsing failed: {e}')
-
+    if target_date is not None:
+        return target_date
+    
     use_today = input(f"Current date {bcolors.OKGREEN}{datetime.strftime(datetime.now(), '%B %d, %Y')}{bcolors.ENDC} y/n? ")
     if use_today.lower() == 'y':
         return datetime.now()
@@ -121,20 +117,31 @@ def is_row_empty(row: list):
     return True
         
 
-def modify_crew(is_add):
+def modify_crew(is_add, audit=True):
 
     action = 'add' if is_add else 'remove'
 
     os.system('clear')
     target_date = get_target_date()
 
-    rows = google_mgr.get_day_from_calendar(target_date)
+    sched_dates = collab_cal_manager.get_day_from_calendar(target_date)
     timeslots = []
-    for row in rows:
-        if not is_row_empty(row):
-            print(row)
-            slot_without_tango = row[0].split('\n')[0]
-            timeslots.append(slot_without_tango)
+    print('Current Schedule: ')
+    for _sched_date in sched_dates:
+        sched_date: SchedDate = _sched_date
+
+        timeslots.append(sched_date.slot)
+        shift_str = ''
+        for _squad_shift in sched_date.squads:
+            squad_shift: SquadShift = _squad_shift
+            shift_str += f'{bcolors.REVGREEN}{squad_shift.squad}{bcolors.ENDC} '
+            shift_str += f'{bcolors.OKGREEN}'
+            if squad_shift.number_of_trucks > 1:
+                shift_str += f' (Trucks: {squad_shift.number_of_trucks})'
+            shift_str += str(squad_shift.squad_covering)
+            shift_str += '; '
+
+        print(f'{bcolors.OKGREEN}{sched_date.slot}{bcolors.ENDC} Tango: {bcolors.OKGREEN}{sched_date.tango} {shift_str} {bcolors.ENDC}')
 
     print('')
     slot_sel = prompt_menu('Select timeslot: ', timeslots+['Custom'])
@@ -148,12 +155,13 @@ def modify_crew(is_add):
         start = int(slot_sel.split('-')[0])
         end = int(slot_sel.split('-')[1])
 
+
     squad_sel = int(prompt_menu('Squad? ', ['34', '35', '42', '43', '54']))
     print(f'Going to {action} squad: {squad_sel} to slot: {slot_sel}')
 
     changes = []
     changes.append(ModifyShiftRequest(start, end, squad_sel, is_add))
-    collab_cal_manager.add_remove_shifts(target_date, changes, territory_map)
+    collab_cal_manager.add_remove_shifts(target_date, changes, territory_map, audit=audit)
 
 
 def get_squads_on_duty(sched):
@@ -257,13 +265,15 @@ def revert():
 
 
 def notify_crews():
-    collab_cal_manager.save_day(8, 20, 2023)
-    print(f'Snapshot saved!')
+    print('Not Impemented!')
 
 
 def read_territory_map():
-    global territory_map
-    territory_map = google_mgr.read_territory_map()
+    """
+    Calls manager to get territory map.  Performs validations, if all good, returns map
+    """
+
+    territory_map = collab_cal_manager.read_territory_map()
     for key, value in territory_map.items():
         num_in_key = len(key.split(','))
         all_terr = []
@@ -285,45 +295,106 @@ def read_territory_map():
                 if r.lower() == 'y':
                     sys.exit()
 
-
-def select_calendar():
-    env_sel = prompt_menu('Change Environment', ["[d] Devo", "[p] Prod"])
-    if env_sel == 'Prod':
-        select_calendar(PROD_COLLAB_CALENDAR_SPREADSHEET_ID)
+        return territory_map
 
 
-def create_google_manager():
-    global google_mgr
+def select_tab(override_date=None):
+    tabs = collab_cal_manager.get_tabs()
 
-    #TODO: This class should have no knowledge of the GCal object
-    #TODO: All requests should go through collab_cal_mgr
-
-    if len(sys.argv) > 1 and (sys.argv[1].lower() == 'devo' or sys.argv[1].lower() == 'prod'):
-        if sys.argv[1].lower() == 'prod':
-            google_mgr = GCal(PROD_COLLAB_CALENDAR_SPREADSHEET_ID)
-        else:
-            google_mgr = GCal(BETA_COLLAB_CALENDAR_SPREADSHEET_ID)
+    if override_date is not None:
+        current_tab = datetime.strftime('%B %Y')
     else:
-        env_sel = prompt_menu('Select environment', ['[d] Devo', '[p] Prod'])
-        if env_sel.lower() == 'devo':
-            google_mgr = GCal(BETA_COLLAB_CALENDAR_SPREADSHEET_ID)
-        else:
-            google_mgr = GCal(PROD_COLLAB_CALENDAR_SPREADSHEET_ID) 
+        current_tab = datetime.now().strftime('%B %Y')
 
-
-def select_tab():
-    tabs = google_mgr.get_tabs()
-
-    current_tab = datetime.now().strftime('%B %Y')
     if current_tab in tabs:
         if input(f'Use current tab? {bcolors.OKGREEN}{current_tab}{bcolors.ENDC} y/n ').lower() == 'y':
-            google_mgr.set_calendar_tab(current_tab)
             return current_tab
+
     print(f'current tab: {current_tab} is not in tabs: {tabs}')
     
     selected_tab = prompt_menu('Select target tab: ', tabs)
-    google_mgr.set_calendar_tab(selected_tab)
     return selected_tab
+
+
+def quick_test():
+    hours_by_squad = {34: 126, 35: 147, 54: 210, 42: 192, 43: 162}
+    tango_hours = {34: 45, 35: 72, 42: 102, 43: 87, 54: 102}
+    tally_to_date = []
+    collab_cal_manager.save_tally(hours_by_squad, tango_hours, tally_to_date)
+
+
+def prompt_for_environment():
+    env_sel = prompt_menu('Select environment', ['[d] Devo', '[p] Prod'])
+    return env_sel.lower()
+
+
+def main(environment=None, target_date=None):
+    global collab_cal_manager
+    global territory_map
+
+    os.system('clear')
+    if environment is None:
+        environment = prompt_for_environment()
+
+    collab_cal_manager = CollabCalendarManager(environment, 
+                                               '/Users/georgenowakowski/Downloads/collab_config')
+    collab_cal_manager.set_calendar_tab(select_tab(target_date))   
+    territory_map = read_territory_map()
+    collab_cal_manager.set_territory_map(territory_map)
+
+    options = [
+        "[n] New Calendar",
+        "[e] Existing Calendar"
+    ]
+    selection = prompt_menu('Main actions', options)
+
+    if selection == 'New Calendar':
+        options = [
+            "[n] New month From Template", 
+            "[s] Tally Shifts",
+            "[p] Populate Tangos"
+        ]
+        selection = prompt_menu('Main actions', options)
+    else:
+        options = [
+            "[x] No Crew", 
+            "[0] Remove Crew (No Audit)",
+            "[a] Add Crew", 
+            "[1] Add Crew (No Audit)", 
+            "[t] Assign Tango", 
+            "[r] Revert Previous", 
+            "[e] Notify",
+            "[s] Tally Shifts"
+        ]
+        selection = prompt_menu('Main actions', options)
+
+    os.system('clear')
+
+    match selection:
+        case 'Quick Test':
+            quick_test()
+        case 'New month From Template':
+            build_calendar()
+        case 'Remove Crew (No Audit)':
+            modify_crew(is_add=False, audit=False)
+        case 'Add Crew (No Audit)':
+            modify_crew(is_add=True, audit=False)
+        case 'No Crew':
+            modify_crew(False)
+        case 'Add Crew':
+            modify_crew(True)
+        case 'Assign Tango':
+            assign_tango()
+        case 'Revert Previous':
+            revert()
+        case 'Notify':
+            notify_crews()
+        case 'Populate Tangos':
+            assign_tangos()
+        case 'Tally Shifts':
+            tally_shifts(save_tally=True)
+        case '_':
+            print('Invalid menu option!!')
 
 
 if __name__ == '__main__':
@@ -339,43 +410,21 @@ if __name__ == '__main__':
     python collab_i.py devo 20230820
     
     """
+    environment = None
+    target_date = None
 
-    os.system('clear')
-    create_google_manager()
-    current_tab = select_tab()    
+    if len(sys.argv) > 1:
+        if len(sys.argv) > 1 and (sys.argv[1].lower() == 'devo' or sys.argv[1].lower() == 'prod'):
+            if sys.argv[1].lower() == 'prod':
+                environment = 'prod'
+            else:
+                environment = 'devo'
 
-    options = ["[n] New month From Template", "[x] No Crew", "[a] Add Crew", "[t] Assign Tango", 
-               "[r] Revert Previous", 
-               "[e] Notify",
-               "[s] Tally Shifts",
-               "[p] Populate Tangos",
-               "[1] Read Territories"]
+    # If date provided on command line, use that date
+    if len(sys.argv) > 2:
+        try:
+            target_date = datetime.strptime(sys.argv[2], '%Y%m%d')
+        except Exception as e:
+            print(f'Parsing failed: {e}')
 
-    collab_cal_manager = CollabCalendarManager(territory_map, google_mgr, 
-                                               '/Users/georgenowakowski/Downloads/collab_config', current_tab)
-    selection = prompt_menu('Main actions', options)
-
-    read_territory_map()
-    os.system('clear')
-
-    match selection:
-        case 'New month From Template':
-            build_calendar()
-        case 'No Crew':
-            modify_crew(False)
-        case 'Add Crew':
-            modify_crew(True)
-        case 'Assign Tango':
-            assign_tango()
-        case 'Revert Previous':
-            revert()
-        case 'Notify':
-            notify_crews()
-        case 'Populate Tangos':
-            assign_tangos()
-        case 'Tally Shifts':
-            tally_shifts(save_tally=True)
-        case 'Read Territories':
-            read_territory_map()
-        case '_':
-            print('Invalid menu option!!')
+    main(environment, target_date)

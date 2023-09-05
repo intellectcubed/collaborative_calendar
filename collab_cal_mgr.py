@@ -11,16 +11,29 @@ import json
 from bcolors import bcolors
 from calendar import monthrange
 import traceback
+from google_calendar_mgr import PROD_COLLAB_CALENDAR_SPREADSHEET_ID, BETA_COLLAB_CALENDAR_SPREADSHEET_ID, GCal
+
 
 class CollabCalendarManager:
 
 
-    def __init__(self, territory_map, gcal, config_dir, target_tab, interactive_mode=True):
+    def __init__(self, environment, config_dir, interactive_mode=True):
         self.interactive_mode = interactive_mode
-        self.territory_map = territory_map
-        self.gcal = gcal
-        self.target_tab = target_tab
         self.config_dir = config_dir
+
+        if environment == 'prod':
+            self.gcal = GCal(PROD_COLLAB_CALENDAR_SPREADSHEET_ID)
+        else:
+            self.gcal = GCal(BETA_COLLAB_CALENDAR_SPREADSHEET_ID)
+
+
+    def set_calendar_tab(self, target_tab):
+        self.gcal.set_calendar_tab(target_tab)
+        self.target_tab = target_tab
+
+    
+    def set_territory_map(self, territory_map):
+        self.territory_map = territory_map
 
 
     def confirmation_or_throw(self, prompt):
@@ -29,6 +42,13 @@ class CollabCalendarManager:
             if val.lower() != 'y':
                 raise Exception(f'Did not select y for: {prompt}')
 
+    def get_tabs(self):
+        return self.gcal.get_tabs()
+    
+
+    def read_territory_map(self):
+        return self.gcal.read_territory_map()
+    
 
     def get_shift_territory_overrides(self, target_date, shift_start, shift_end):
         """ Get the territory overrides
@@ -86,7 +106,7 @@ class CollabCalendarManager:
 
 
 
-    def add_remove_shifts(self, target_date, changes, territory_map, initial_build=False, territory_overrides=None):
+    def add_remove_shifts(self, target_date, changes, territory_map, initial_build=False, territory_overrides=None, audit=True):
         """
         changes is a list of ModifyShiftRequest requests
         """
@@ -117,7 +137,7 @@ class CollabCalendarManager:
 
         formatted_rows = shifts_to_google(shifts)
         self.gcal.write_day_to_calendar(target_date, formatted_rows)
-        if not initial_build:
+        if not initial_build and audit:
             self.audit_changes(target_date, changes)
 
 
@@ -478,7 +498,7 @@ class CollabCalendarManager:
         hours = []
         tango = []
 
-        for key in keys():
+        for key in keys:
             hours.append(shift_hours[key])
             tango.append(tango_hours[key])
 
@@ -486,7 +506,7 @@ class CollabCalendarManager:
             self.gcal.populate_hours_to_date([hours])
         else:
             self.gcal.populate_hours_committed([hours])
-        self.gcal.populate_tango_hours(tango)
+        self.gcal.populate_tango_hours([tango])
 
 
     def find_squad_with_least_tango(self, tango_hours, duty_squads):
