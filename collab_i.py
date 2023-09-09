@@ -55,8 +55,8 @@ def get_target_date():
     if target_date is not None:
         return target_date
     
-    use_today = input(f"Current date {bcolors.OKGREEN}{datetime.strftime(datetime.now(), '%B %d, %Y')}{bcolors.ENDC} y/n? ")
-    if use_today.lower() == 'y':
+    use_today = input(f"Current date {bcolors.OKGREEN}{datetime.strftime(datetime.now(), '%B %d, %Y')}{bcolors.ENDC} y/n? (Default=y) ")
+    if len(use_today) == 0 or use_today.lower() == 'y':
         return datetime.now()
     else:
         month = datetime.now().month
@@ -307,7 +307,8 @@ def select_tab(override_date=None):
         current_tab = datetime.now().strftime('%B %Y')
 
     if current_tab in tabs:
-        if input(f'Use current tab? {bcolors.OKGREEN}{current_tab}{bcolors.ENDC} y/n ').lower() == 'y':
+        sel = input(f'Use current tab? {bcolors.OKGREEN}{current_tab}{bcolors.ENDC} y/n (Default=y) ')
+        if len(sel) == 0 or sel.lower() == 'y':
             return current_tab
 
     print(f'current tab: {current_tab} is not in tabs: {tabs}')
@@ -343,8 +344,8 @@ def main(environment=None, target_date=None):
     collab_cal_manager.set_territory_map(territory_map)
 
     options = [
-        "[n] New Calendar",
-        "[e] Existing Calendar"
+        "[e] Existing Calendar",
+        "[n] New Calendar"
     ]
     selection = prompt_menu('Main actions', options)
 
