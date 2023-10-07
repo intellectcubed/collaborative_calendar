@@ -1,4 +1,4 @@
-from calendar_slot_utils import add_to_calendar, remove_from_calendar, get_slots, build_day
+from calendar_slot_utils import add_to_calendar, build_tango_slots, remove_from_calendar, get_slots, build_day, add_tango_to_calendar
 from calendar_formatter import google_to_shifts, day_from_shifts, to_squad_shifts, shifts_to_google, pad_day_matrix, CALENDAR_ROWS, CALENDAR_COLS
 from models import ModifyShiftRequest, SchedDate, SquadShift, MAX_TRUCKS_PER_SHIFT
 from google_calendar_mgr import LOCATION_RE
@@ -79,13 +79,15 @@ class CollabCalendarManager:
             return (600, 600)    
 
 
-    def show_matrix(self, matrix):
+    def show_matrix(self, tango_array, matrix):
         hour = 0
+        row_num = 0
         for row in matrix:
-            print(f'{hour:04d} {row}')
+            print(f'{hour:04d} Tango: ({tango_array[row_num]}) {row}')
             hour += 100
-            if hour > 23:
+            if hour > 2300:
                 hour = 0
+            row_num += 1
 
     def get_calendar_template(self):
         return self.gcal.get_calendar_template()
@@ -105,17 +107,63 @@ class CollabCalendarManager:
         return google_to_shifts(calendar_day_rows, target_date)
 
 
+    def to_squad_array(self, squads):
+        squad_array = []
+        for _squad in squads:
+            squad: SquadShift = _squad
+            squad_array.append(squad.squad)
 
-    def add_remove_shifts(self, target_date, changes, territory_map, initial_build=False, territory_overrides=None, audit=True):
+        return squad_array
+
+
+    def get_number_of_squads(self, squads):
+        count = 0
+        for _squad in squads:
+            squad: SquadShift = _squad
+            if squad.squad != 100:
+                count += 1
+
+        return count
+
+
+    def fix_tangos(self, shifts, prompt_method):
+        """
+        Iterate over the shifts.  
+        """
+
+        for _shift in shifts:
+            shift: SchedDate = _shift
+            squad_array = self.to_squad_array(shift.squads)
+            if shift.tango == 100:
+                if self.get_number_of_squads(shift.squads) == 1:
+                    shift.tango = shift.squads[0].squad
+                else:
+                    print(f'{bcolors.FAIL}Tango is not assigned for: {shift.slot} {bcolors.ENDC}')
+                    if prompt_method is not None:
+                        start, end = shift.slot.split('-')
+                        shift.tango = prompt_method(start, end, squad_array)
+            else:
+                if shift.tango not in squad_array:
+                    print(f'{bcolors.FAIL}Tango is not in the squad list for: {shift.slot} {bcolors.ENDC}')
+                    if self.get_number_of_squads(shift.squads) == 1:
+                        shift.tango = shift.squads[0].squad
+                    else:
+                        if prompt_method is not None:
+                            start, end = shift.slot.split('-')
+                            shift.tango = prompt_method(start, end, squad_array)
+
+
+    def add_remove_shifts(self, target_date, changes, territory_map, initial_build=False, prompt_method=None, territory_overrides=None, audit=True):
         """
         changes is a list of ModifyShiftRequest requests
         """
         if initial_build:
             matrix = build_day()
+            tango_array = build_tango_slots()
         else:
             calendar_day_rows = self.gcal.get_day_from_calendar(target_date)
             day_shifts = google_to_shifts(calendar_day_rows, target_date)
-            matrix = day_from_shifts(day_shifts)
+            tango_array, matrix = day_from_shifts(day_shifts)
 
         # Implement changes here in bulk
         for _change in changes:
@@ -125,14 +173,17 @@ class CollabCalendarManager:
             else:
                 remove_from_calendar(matrix, change.start_time, change.end_time, change.squad)
 
+            # add_tango_to_calendar(tango_array, change.start_time, change.end_time, change.tango)
+
         print(f'Matrix after adding shift...')
-        self.show_matrix(matrix)
+        self.show_matrix(tango_array, matrix)
         print('=====')
         start, end = self.get_shift_range(target_date)
-        slots = get_slots(matrix, start, end)
+        slots = get_slots(tango_array, matrix, start, end)
         shifts = to_squad_shifts(target_date, slots, territory_map, territory_overrides)
         
         if not initial_build:
+            self.fix_tangos(shifts, prompt_method)
             self.save_day(target_date)
 
         formatted_rows = shifts_to_google(shifts)
@@ -216,7 +267,7 @@ class CollabCalendarManager:
             delta =  end_time - start_time
 
         return delta //100        
-    
+
 
     def audit_changes(self, target_date, changes: list):
         """Write down a record of what was changed and when in the Audit tab
@@ -385,7 +436,7 @@ class CollabCalendarManager:
         for key in exceeded_map.keys():
             warnings.append(f'Squad: {key} has exceeded 2 consecutive days around day: {exceeded_map[key]}!')
         return warnings
-    
+
 
     def save_day_snapshot(self, snapshot_file, day_shifts):
         if snapshot_file is None:
@@ -490,7 +541,7 @@ class CollabCalendarManager:
 
         self.save_day_snapshot(snapshot_file, days)
         return (hours_by_squad, tango_hours, calendar_warnings)   
-    
+
 
     def save_tally(self, shift_hours, tango_hours, is_actual):
 
@@ -562,46 +613,46 @@ class CollabCalendarManager:
         return tango_hours
 
 
-    if __name__ == '__main__':
+if __name__ == '__main__':
 
-        # TODO: Add ability to add/remove first responder (and assign territories)
-        # TODO: Add ability to assing tangos for the month
+    # TODO: Add ability to add/remove first responder (and assign territories)
+    # TODO: Add ability to assing tangos for the month
 
-        territory_map = {
-            '34,43': {34: [34,42,54], 43: [35,43]},
-            '34,35': {34: [34,42,54], 35: [35,43]},
-            '34,43,54': {34: [34], 43: [35,43], 54: [35,54]},
-            '35,54': {35: [35,43], 54: [34,42,54]}
-        }
+    territory_map = {
+        '34,43': {34: [34,42,54], 43: [35,43]},
+        '34,35': {34: [34,42,54], 35: [35,43]},
+        '34,43,54': {34: [34], 43: [35,43], 54: [35,54]},
+        '35,54': {35: [35,43], 54: [34,42,54]}
+    }
 
 
-        # changes = []
-        # changes.append(ModifyShiftRequest(600, 900, 34, True))
-        # changes.append(ModifyShiftRequest(900, 1100, 54, True))
-        # changes.append(ModifyShiftRequest(1000, 2100, 35, True))
-        # changes.append(ModifyShiftRequest(900, 1000, 54, False))
+    # changes = []
+    # changes.append(ModifyShiftRequest(600, 900, 34, True))
+    # changes.append(ModifyShiftRequest(900, 1100, 54, True))
+    # changes.append(ModifyShiftRequest(1000, 2100, 35, True))
+    # changes.append(ModifyShiftRequest(900, 1000, 54, False))
 
-        # add_remove_shifts(8, 5, 2023, changes, territory_map)
+    # add_remove_shifts(8, 5, 2023, changes, territory_map)
 
-        # tango_changes = []
-        # tango_changes.append(ModifyShiftRequest(600, 900, 34, True))
-        # tango_changes.append(ModifyShiftRequest(900, 1000, 54, True))
-        # tango_changes.append(ModifyShiftRequest(1000, 1100, 35, True))
-        # tango_changes.append(ModifyShiftRequest(1100, 2100, 35, False))
+    # tango_changes = []
+    # tango_changes.append(ModifyShiftRequest(600, 900, 34, True))
+    # tango_changes.append(ModifyShiftRequest(900, 1000, 54, True))
+    # tango_changes.append(ModifyShiftRequest(1000, 1100, 35, True))
+    # tango_changes.append(ModifyShiftRequest(1100, 2100, 35, False))
 
-        # assign_tango(8, 5, 2023, tango_changes)
+    # assign_tango(8, 5, 2023, tango_changes)
 
-        # try:
-        #     squads = []
-        #     squads.append(SquadShift(squad=35, number_of_trucks=1, squad_covering=[34, 35, 42]))
-        #     squads.append(SquadShift(squad=54, number_of_trucks=1, squad_covering=[43, 54]))
+    # try:
+    #     squads = []
+    #     squads.append(SquadShift(squad=35, number_of_trucks=1, squad_covering=[34, 35, 42]))
+    #     squads.append(SquadShift(squad=54, number_of_trucks=1, squad_covering=[43, 54]))
 
-        #     override = SchedDate(month=8, day=5, year=2023, tango=100, slot='1000 - 1100', squads=squads)
-        #     apply_shift_changes(override)
+    #     override = SchedDate(month=8, day=5, year=2023, tango=100, slot='1000 - 1100', squads=squads)
+    #     apply_shift_changes(override)
 
-        #     write_shift_override(override)
+    #     write_shift_override(override)
 
-        # except Exception as e:
-        #     print(f'{bcolors.FAIL}Exception: {e}{bcolors.ENDC}')
+    # except Exception as e:
+    #     print(f'{bcolors.FAIL}Exception: {e}{bcolors.ENDC}')
 
-        # TODO: Create scenario where you have existing overrides and you build a new calendar day (overrides will clobber actual)
+    # TODO: Create scenario where you have existing overrides and you build a new calendar day (overrides will clobber actual)

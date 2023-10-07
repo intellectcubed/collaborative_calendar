@@ -1,6 +1,10 @@
 import sys
 
 
+NUMBER_OF_SQUADS = 3
+UNASSIGNED_SQUAD = 100
+
+
 def show_matrix(matrix):
     ctr = 0
     for line in matrix:
@@ -50,21 +54,30 @@ def range_from_start_end(start, end):
 
 def add_to_calendar(matrix, start, end, squad):
     for day_row in range_from_start_end(start, end):
-        replace_in_row(matrix, day_row, 100, squad)
+        replace_in_row(matrix, day_row, UNASSIGNED_SQUAD, squad)
+
+def add_tango_to_calendar(tango_array, start, end, squad):
+    for day_row in range_from_start_end(start, end):
+        tango_array[day_row] = squad
 
 
 def remove_from_calendar(matrix, start, end, squad):
     for day_row in range_from_start_end(start, end):
-        replace_in_row(matrix, day_row, squad, 100)
+        replace_in_row(matrix, day_row, squad, UNASSIGNED_SQUAD)
 
 
 def build_day():
     # Create a matrix of 3 slots wide for 48 hours.  Each cell is filled with 100 (no crew)
-    return [[100 for _ in range(3)] for _ in range(48)]
+    return [[UNASSIGNED_SQUAD for _ in range(NUMBER_OF_SQUADS)] for _ in range(48)]
+
+
+def build_tango_slots():
+    return [UNASSIGNED_SQUAD for _ in range(48)]
 
 
 def day_from_shifts(shifts: list):
     day_matrix = build_day()
+    tango_array = build_tango_slots()
     for shift in shifts:
         if shift.slot is None or shift.slot == '':
             continue
@@ -72,19 +85,20 @@ def day_from_shifts(shifts: list):
         start = int(hrs[0])
         end = int(hrs[1])
         for col in shift.squads:
+            add_tango_to_calendar(tango_array, start, end, shift.tango)
             for _truck in range(col.number_of_trucks):
                 add_to_calendar(day_matrix, start, end, col.squad)
 
-    return day_matrix
+    return (tango_array, day_matrix)
     
 
-def make_slot_row(start, end, shift_row):
-    row = [100, f'{start*100:04d} - {end*100:04d}']
+def make_slot_row(start, end, tango, shift_row):
+    row = [tango, f'{start*100:04d} - {end*100:04d}']
     row.extend(shift_row)
     return row
 
 
-def get_slots(matrix, start, end):
+def get_slots(tango_array, matrix, start, end):
     """
     start, end will be either: (600, 600) or (1800, 600)
 
@@ -104,19 +118,21 @@ def get_slots(matrix, start, end):
     interval_start = start // 100
 
     prev_row = matrix[interval_start]
+    prev_tango = tango_array[interval_start]
     interval_end = 0
     for day_row in range_from_start_end(start, end):
-        if matrix[day_row] != prev_row:
+        if matrix[day_row] != prev_row or tango_array[day_row] != prev_tango:
             current = day_row
             if day_row > 23:
                 current = day_row - 24
-            slots.append(make_slot_row(interval_start, current, prev_row))
+            slots.append(make_slot_row(interval_start, current, prev_tango, prev_row))
             prev_row = matrix[day_row]
+            prev_tango = tango_array[day_row]
             interval_start = current
 
         interval_end += 1
 
-    slots.append(make_slot_row(interval_start, end // 100, prev_row))
+    slots.append(make_slot_row(interval_start, end // 100, prev_tango, prev_row))
 
     return slots
 

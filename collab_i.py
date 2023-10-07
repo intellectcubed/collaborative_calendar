@@ -98,7 +98,7 @@ def build_calendar():
 
             start, end = split_timeslot(row[2])
             for squad in row[3:]:
-                changes.append(ModifyShiftRequest(start, end, int(squad), True))
+                changes.append(ModifyShiftRequest(start, end, int(squad), 77, True))
 
     # Now apply the changes
     day = 0
@@ -116,6 +116,14 @@ def is_row_empty(row: list):
 
     return True
         
+
+def prompt_tango_method(start, end, squads):
+    os.system('clear')
+
+    title = f'Select a tango for: {start} - {end}'
+    return int(prompt_menu(title, [str(num) for num in squads]))
+    
+
 
 def modify_crew(is_add, audit=True):
 
@@ -155,13 +163,12 @@ def modify_crew(is_add, audit=True):
         start = int(slot_sel.split('-')[0])
         end = int(slot_sel.split('-')[1])
 
-
     squad_sel = int(prompt_menu('Squad? ', ['34', '35', '42', '43', '54']))
     print(f'Going to {action} squad: {squad_sel} to slot: {slot_sel}')
 
     changes = []
-    changes.append(ModifyShiftRequest(start, end, squad_sel, is_add))
-    collab_cal_manager.add_remove_shifts(target_date, changes, territory_map, audit=audit)
+    changes.append(ModifyShiftRequest(start, end, squad_sel, 77, is_add))
+    collab_cal_manager.add_remove_shifts(target_date, changes, territory_map, prompt_method=prompt_tango_method, audit=audit)
 
 
 def get_squads_on_duty(sched):

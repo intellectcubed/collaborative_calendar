@@ -23,5 +23,6 @@ class ModifyShiftRequest:
     start_time: int
     end_time: int
     squad: int
+    tango: int
     is_add: bool
 
