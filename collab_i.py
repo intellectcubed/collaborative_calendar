@@ -7,13 +7,15 @@ Date created: August 19, 2023
 This is an interactive terminal client to the Collaborative Calendar utility
 """
 
+import argparse
+from dataclasses import dataclass
 from simple_term_menu import TerminalMenu
 from bcolors import bcolors
 import os
 import sys
 import time
 import re
-from models import ModifyShiftRequest, SchedDate, SquadShift
+from models import ModifyOptions, ModifyShiftRequest, SchedDate, SquadShift
 from collab_cal_mgr import CollabCalendarManager
 from calendar_slot_utils import split_timeslot
 from datetime import datetime
@@ -24,6 +26,7 @@ current_tab: str = None
 territory_map = None
 config_dir = '/Users/georgenowakowski/Downloads/collab_config'
 target_date = None
+args = None
 
 def prompt_menu(title, options):
     terminal_menu = TerminalMenu(title=title, menu_entries= options)
@@ -124,10 +127,11 @@ def prompt_tango_method(start, end, squads):
     return int(prompt_menu(title, [str(num) for num in squads]))
     
 
+def modify_crew(options: ModifyOptions):
 
-def modify_crew(is_add, audit=True):
-
-    action = 'add' if is_add else 'remove'
+    # print(f'Are we going to capture test cases?  {args.build_tests}')
+    # input('Press enter to continue...')
+    action = 'add' if options.is_add == True else 'remove'
 
     os.system('clear')
     target_date = get_target_date()
@@ -166,9 +170,23 @@ def modify_crew(is_add, audit=True):
     squad_sel = int(prompt_menu('Squad? ', ['34', '35', '42', '43', '54']))
     print(f'Going to {action} squad: {squad_sel} to slot: {slot_sel}')
 
+    request_source = prompt_menu('Request source: ', ['[g] GroupMe', '[t] Text', '[e] Email', '[o] Other'])
+    if request_source == 'Other':
+        request_source = input('Enter source: ')
+
+    reason = input('Reason: ')
+
+    options.requested_by = request_source or ''
+    options.reason = reason or ''
+
     changes = []
-    changes.append(ModifyShiftRequest(start, end, squad_sel, 77, is_add))
-    collab_cal_manager.add_remove_shifts(target_date, changes, territory_map, prompt_method=prompt_tango_method, audit=audit)
+    changes.append(ModifyShiftRequest(start, end, squad_sel, 77, options))
+    collab_cal_manager.add_remove_shifts(target_date, changes, territory_map, prompt_method=prompt_tango_method)
+
+    if args.build_tests:
+        save_test_case(target_date, changes)
+
+
 
 
 def get_squads_on_duty(sched):
@@ -206,7 +224,7 @@ def assign_tango():
                 print(f'Selected squad: {new_tango} is not on duty: {on_duty}')
 
         start, end = split_timeslot(day_slots[slot_idx].slot)
-        tango_changes.append(ModifyShiftRequest(start, end, new_tango, True))
+        tango_changes.append(ModifyShiftRequest(start, end, new_tango, new_tango, True))
 
     collab_cal_manager.assign_tango(target_date, tango_changes)
 
@@ -267,12 +285,9 @@ def revert():
         print(f'{bcolors.FAIL}No snapshot saved{bcolors.ENDC}')
         return
 
-    if input(f'Are you sure you want to revert: {bcolors.OKBLUE}{datetime.strftime(snapshot_date, "%B %d, %Y")}{bcolors.ENDC} y/n? ') == 'y':
+    is_revert = input(f'Are you sure you want to revert: {bcolors.OKBLUE}{datetime.strftime(snapshot_date, "%B %d, %Y")}{bcolors.ENDC} [y]/n? ')
+    if len(is_revert) == 0 or is_revert.lower() == 'y':
         collab_cal_manager.revert()
-
-
-def notify_crews():
-    print('Not Impemented!')
 
 
 def read_territory_map():
@@ -367,11 +382,11 @@ def main(environment=None, target_date=None):
         options = [
             "[x] No Crew", 
             "[0] Remove Crew (No Audit)",
+            "[z] Obliterate Crew (remove with no Audit)",
             "[a] Add Crew", 
             "[1] Add Crew (No Audit)", 
             "[t] Assign Tango", 
             "[r] Revert Previous", 
-            "[e] Notify",
             "[s] Tally Shifts"
         ]
         selection = prompt_menu('Main actions', options)
@@ -384,19 +399,24 @@ def main(environment=None, target_date=None):
         case 'New month From Template':
             build_calendar()
         case 'Remove Crew (No Audit)':
-            modify_crew(is_add=False, audit=False)
+            options: ModifyOptions = ModifyOptions(is_add=False, audit=False)
+            modify_crew(options)
         case 'Add Crew (No Audit)':
-            modify_crew(is_add=True, audit=False)
+            options: ModifyOptions = ModifyOptions(is_add=True, audit=False)
+            modify_crew(options)
         case 'No Crew':
-            modify_crew(False)
+            options: ModifyOptions = ModifyOptions(is_add=False, audit=True)
+            modify_crew(options)
+        case 'Obliterate Crew (remove with no Audit)':
+            options: ModifyOptions = ModifyOptions(is_add=False, audit=False, obliterate=True)
+            modify_crew(options)
         case 'Add Crew':
-            modify_crew(True)
+            options: ModifyOptions = ModifyOptions(is_add=True, audit=True)
+            modify_crew(options)
         case 'Assign Tango':
             assign_tango()
         case 'Revert Previous':
             revert()
-        case 'Notify':
-            notify_crews()
         case 'Populate Tangos':
             assign_tangos()
         case 'Tally Shifts':
@@ -404,6 +424,16 @@ def main(environment=None, target_date=None):
         case '_':
             print('Invalid menu option!!')
 
+def parse_args():
+    parser = argparse.ArgumentParser(description='Collaborative Calendar Interactive')
+    parser.add_argument('--environment', type=str, nargs='?', default=None, help='Environment [devo | prod]')
+    parser.add_argument('--date', type=str, nargs='?', default=None, help='Date (yyyyMMdd)')
+    parser.add_argument('--build_tests', action='store_true', help='Save commands into a test file')
+    parser.add_argument('--run_tests', type=str, nargs='?', default=None, help='Test file to use')
+    parser.add_argument('--capture_month', action='store_true', help='Capture Month')
+    parser.add_argument('--restore_month', action='store_true', help='Restore Month')
+    args = parser.parse_args()
+    return args
 
 if __name__ == '__main__':
     """Collaborative Calendar Interactive
@@ -418,21 +448,45 @@ if __name__ == '__main__':
     python collab_i.py devo 20230820
     
     """
+
+    args = parse_args()
+
+    if args.capture_month:
+        os.system('clear')
+        collab_cal_manager = CollabCalendarManager('devo', '/Users/georgenowakowski/Downloads/collab_config')
+        collab_cal_manager.capture_month(select_tab())
+        sys.exit()
+
+    if args.restore_month:
+        os.system('clear')
+        collab_cal_manager = CollabCalendarManager('devo', '/Users/georgenowakowski/Downloads/collab_config')
+        collab_cal_manager.restore_month(select_tab())
+        sys.exit()
+
+    # if args.build_tests:
+    #     os.system('clear')
+    #     collab_cal_manager = CollabCalendarManager('devo', '/Users/georgenowakowski/Downloads/collab_config')
+    #     collab_cal_manager.build_tests(select_tab())
+    #     sys.exit()
+
+    # Proceed with interactive mode
+
     environment = None
     target_date = None
 
-    if len(sys.argv) > 1:
-        if len(sys.argv) > 1 and (sys.argv[1].lower() == 'devo' or sys.argv[1].lower() == 'prod'):
-            if sys.argv[1].lower() == 'prod':
-                environment = 'prod'
-            else:
-                environment = 'devo'
+    # If environment provided on command line, use that environment
+    if args.environment:
+        environment = args.environment.lower()
+        if environment not in ['devo', 'prod']:
+            print(f'Invalid environment: {environment}')
+            sys.exit()
 
     # If date provided on command line, use that date
-    if len(sys.argv) > 2:
+    if args.date:
         try:
-            target_date = datetime.strptime(sys.argv[2], '%Y%m%d')
+            target_date = datetime.strptime(args.date, '%Y%m%d')
         except Exception as e:
             print(f'Parsing failed: {e}')
+            sys.exit()
 
     main(environment, target_date)

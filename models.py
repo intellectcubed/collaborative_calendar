@@ -1,7 +1,16 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 MAX_TRUCKS_PER_SHIFT = 3
+
+@dataclass
+class ModifyOptions:
+    is_add: bool = True
+    audit: bool = True
+    obliterate: bool = False # Remove without specifying 'No Crew'
+    requested_by: str = None
+    reason: str = None
+    
 
 @dataclass
 class SquadShift:
@@ -24,5 +33,11 @@ class ModifyShiftRequest:
     end_time: int
     squad: int
     tango: int
-    is_add: bool
+    modify_options: ModifyOptions = field(default_factory=ModifyOptions)
 
+@dataclass
+class SquadContacts:
+    squad: int
+    chief: str
+    to_list: str
+    cc_list: str = ''

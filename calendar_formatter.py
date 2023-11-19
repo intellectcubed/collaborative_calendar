@@ -129,25 +129,33 @@ def parse_squad_shift(squad_shift_str):
     """
     Parse string like: 
     "35\n['All']"
+    "34\n['No Crew']"
     '34\n[34, 42, 54]'
     "35(2 trucks)\n['All']"
     '35(2 trucks)\n[35, 43]'
 
     Return tuple: (squad, num_trucks, territory_list)
     """
+    no_crew = False
     territories = []
     if '\n' in squad_shift_str:
         (squad_str, terr) = squad_shift_str.split('\n')
-        if 'all' not in terr.lower():
+        if 'nocrew' in terr.lower().replace(' ', ''):
+            no_crew = True
+        elif 'all' in terr.lower():
+            territories = ['All']
+        else:
             territories = terr.replace('[', '').replace(']', '').replace(' ', '').split(',')
             territories = [eval(i) for i in territories]
-        else:
-            territories = ['All']
     else:
         squad_str = squad_shift_str
         
 
-    trucks = 1
+    if no_crew:
+        trucks = 0
+    else:
+        trucks = 1
+
     squad = None
     if 'truck' in squad_str.lower():
         m = re.match(squad_rx, squad_str, re.IGNORECASE)
@@ -265,6 +273,27 @@ def get_territories_with_ovr(timeslot, key, territory_map, overrides):
         return override
     else:
         return territory_map.get(key)
+    
+def filter_squads(squads):
+    """
+    Iterate over list of squads.  Return unique squads, with the following exceptions: 
+    - If squad is 100 - empty slot
+    - If squad is < 0, does not cont towards list of unique squads
+
+    Input: List of squads: [-34, 35, 43, 100]
+    Return: Tuple: [0] = list of squads with no crew, [1] - List of unique squads
+          Example: ([34], [35, 43])
+    
+    """
+    unique_squads = []
+    squads_no_crew = []
+    for squad in squads:
+        if squad < 0:
+            squads_no_crew.append(-1*squad)
+        elif squad != 100:
+            unique_squads.append(squad)
+
+    return (list(set(squads_no_crew)),  list(set(unique_squads)))
 
 
 def to_squad_shifts(target_date, raw_slots, territory_map, overrides):
@@ -286,7 +315,7 @@ def to_squad_shifts(target_date, raw_slots, territory_map, overrides):
     for slot in raw_slots:
         tally = Counter(slot[2:])
         unique_squads = list(tally.keys())
-        unique_squads = [i for i in unique_squads if i != 100]
+        (no_crew, unique_squads) = filter_squads(unique_squads)
         shift = []
         if len(unique_squads) > 1:            
             key = make_territory_key(unique_squads)
@@ -299,8 +328,19 @@ def to_squad_shifts(target_date, raw_slots, territory_map, overrides):
         elif len(unique_squads) == 1: 
             shift.append(SquadShift(squad=unique_squads[0], number_of_trucks=tally.get(unique_squads[0]), squad_covering=['All']))
 
+        for no_crew_squad in no_crew:
+            shift.append(SquadShift(squad=no_crew_squad, number_of_trucks=0, squad_covering=['No Crew']))
+
         squad_shifts.append(SchedDate(target_date=target_date, slot=slot[1], tango=slot[0], squads=shift))
+
+    sort_squads_in_shifts(squad_shifts)
+
     return squad_shifts
+
+
+def sort_squads_in_shifts(shifts):
+    for shift in shifts:
+        shift.squads = sorted(shift.squads, key=lambda x: x.squad)
 
 
 def key_from_squadscheds(squads:list):
@@ -317,32 +357,6 @@ def key_from_squadscheds(squads:list):
 
     unique_squads = list(set(squad_ids))
     return make_territory_key(unique_squads)
-
-def to_squad_shifts2(raw_slots, territory_map):
-    """
-    Takes an array of slots and a map of territories
-    Returns list of SchedDate objects
-    """
-    squad_shifts = []  
-    for slot in raw_slots:
-        tally = Counter(slot[2:])
-        unique_squads = list(tally.keys())
-        unique_squads = [i for i in unique_squads if i != 100]
-        shift = []
-        if len(unique_squads) > 1:            
-            key = make_territory_key(unique_squads)
-            territories = territory_map.get(key)
-            if territories is None:
-                print(f'{bcolors.bcolors.BOLD}{bcolors.bcolors.FAIL}Unable to find territories for key: {key}{bcolors.bcolors.ENDC}')
-                sys.exit()
-            for squad in unique_squads:
-                shift.append(SquadShift(squad=squad, number_of_trucks=tally.get(squad), squad_covering=territories.get(squad)))
-        elif len(unique_squads) == 1:
-            shift.append(SquadShift(squad=unique_squads[0], number_of_trucks=tally.get(unique_squads[0]), squad_covering=['All']))
-
-        squad_shifts.append(SchedDate(month=8, day=5, year=2023, slot=slot[1], tango=slot[0], squads=shift))
-    return squad_shifts
-
 
 if __name__ == '__main__':
     territory_map = {

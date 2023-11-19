@@ -27,9 +27,9 @@ class GCal:
     TEMPLATE_TAB_RANGE = 'Template!A1:R54'
     TERRITORY_TAB_2_RANGE = 'Territories!B2:F11'
     TERRITORY_TAB_3_RANGE = 'Territories!H2:N11'
-    CONTACTS_TAB = 'Contacts!A3:C7'
+    CONTACTS_TAB = 'Contacts!A3:D7'
     SAMPLE_RANGE_NAME = 'August 2023!A6:0'
-    AUDIT_RANGE = f'Audit!A2:G300'
+    AUDIT_RANGE = f'Audit!A2:I300'
 
     HOURS_COMMITTED = 'B69:F69'
     HOURS_TO_DATE = 'B70:F70'
@@ -224,6 +224,9 @@ class GCal:
             return values
         except HttpError as err:
             print(err)    
+
+    def get_contacts(self):
+        return self.get_data_from_calendar(self.CONTACTS_TAB)
 
 
     def append_to_audit_rows(self, changes):

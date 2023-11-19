@@ -1,6 +1,7 @@
+import time
 from calendar_slot_utils import add_to_calendar, build_tango_slots, remove_from_calendar, get_slots, build_day, add_tango_to_calendar
 from calendar_formatter import google_to_shifts, day_from_shifts, to_squad_shifts, shifts_to_google, pad_day_matrix, CALENDAR_ROWS, CALENDAR_COLS
-from models import ModifyShiftRequest, SchedDate, SquadShift, MAX_TRUCKS_PER_SHIFT
+from models import ModifyShiftRequest, SchedDate, SquadContacts, SquadShift, MAX_TRUCKS_PER_SHIFT
 from google_calendar_mgr import LOCATION_RE
 from collections import defaultdict
 import datetime
@@ -153,7 +154,7 @@ class CollabCalendarManager:
                             shift.tango = prompt_method(start, end, squad_array)
 
 
-    def add_remove_shifts(self, target_date, changes, territory_map, initial_build=False, prompt_method=None, territory_overrides=None, audit=True):
+    def add_remove_shifts(self, target_date, changes, territory_map, initial_build=False, prompt_method=None, territory_overrides=None):
         """
         changes is a list of ModifyShiftRequest requests
         """
@@ -168,10 +169,10 @@ class CollabCalendarManager:
         # Implement changes here in bulk
         for _change in changes:
             change: ModifyShiftRequest = _change
-            if change.is_add:
+            if change.modify_options.is_add :
                 add_to_calendar(matrix, change.start_time, change.end_time, change.squad)
             else:
-                remove_from_calendar(matrix, change.start_time, change.end_time, change.squad)
+                remove_from_calendar(matrix, change.start_time, change.end_time, change.squad, change.modify_options)
 
             # add_tango_to_calendar(tango_array, change.start_time, change.end_time, change.tango)
 
@@ -188,7 +189,7 @@ class CollabCalendarManager:
 
         formatted_rows = shifts_to_google(shifts)
         self.gcal.write_day_to_calendar(target_date, formatted_rows)
-        if not initial_build and audit:
+        if not initial_build:
             self.audit_changes(target_date, changes)
 
 
@@ -213,6 +214,44 @@ class CollabCalendarManager:
 
         end_cell = int(match.group(3) )+ CALENDAR_ROWS
         return f'{match.group(1)}!{match.group(2)}{match.group(3)}:{match.group(4)}{end_cell}'
+
+
+    def capture_month(self, tab_name):
+        print('Capturing month...')
+
+        location = f'{tab_name}!B6:AC55'
+        month_rows = self.gcal.get_data_from_calendar(location)
+        # curr_timestamp = int(time.mktime(datetime.datetime.now().timetuple()))
+        with open(f'{self.config_dir}/month_backup_{tab_name.replace(" ", "_")}.json', 'w+') as writer:
+            json.dump(month_rows, writer)
+
+        print(f"Saved month to {f'{self.config_dir}/month_backup_{tab_name}.json'}")
+
+
+
+    def restore_month(self, tab_name):
+        print('Restoring month...')
+        with open(f'{self.config_dir}/month_backup_{tab_name.replace(" ", "_")}.json') as rdr:
+            month_rows = json.load(rdr)
+
+        location = f'{tab_name}!B6:AC55'
+        self.gcal.update_values(location, "USER_ENTERED", month_rows)
+        print(f'Restored month from {f"{self.config_dir}/month_backup_{tab_name}.json"}')
+
+    def read_contacts(self):
+        """Read the contacts from the spreadsheet.  
+        
+        Returns a map of SquadContacts objects key=squad
+        """
+        raw_contacts = self.gcal.get_contacts()
+        contacts = {}
+        for row in raw_contacts:
+            if len(row) > 3:
+                contacts[row[0]] = SquadContacts(row[0], row[1], row[2], row[3])
+            else:
+                contacts[row[0]] = SquadContacts(row[0], row[1], row[2])
+
+        return contacts
 
 
     def save_day(self, target_date):
@@ -273,7 +312,7 @@ class CollabCalendarManager:
         """Write down a record of what was changed and when in the Audit tab
         
         Writes to audit tab with the following columns:
-        Change Date,	Month,	Day,	Squad,	Action,	Slot,	Delta
+        Change Date,	Month,	Day,	Squad,	Action,	Slot,	Delta, Requested By, Reason
 
         ## Parameters: 
         * month (int)
@@ -287,10 +326,13 @@ class CollabCalendarManager:
         new_audit_rows = []
         for _change in changes:
             change: ModifyShiftRequest = _change
-            action = 'Add Crew' if change.is_add else 'No Crew'
+            if change.modify_options.audit == False:
+                continue
+
+            action = 'Add Crew' if change.modify_options.is_add else 'No Crew'
             slot = f'{change.start_time:04d} - {change.end_time:04d}'
             delta = self.calculate_delta(change.start_time, change.end_time)
-            delta = (-1)*delta if not change.is_add else delta
+            delta = (-1)*delta if not change.modify_options.is_add else delta
             row = [
                 str(datetime.datetime.now()),
                 target_date.month,
@@ -298,7 +340,9 @@ class CollabCalendarManager:
                 change.squad,
                 action,
                 slot,
-                delta
+                delta,
+                change.modify_options.requested_by,
+                change.modify_options.reason
             ]
             new_audit_rows.append(row)
 

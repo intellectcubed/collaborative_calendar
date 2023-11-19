@@ -1,0 +1,1 @@
+alias lls="ls -ltr"

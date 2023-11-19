@@ -1,5 +1,7 @@
 import sys
 
+from models import ModifyOptions
+
 
 NUMBER_OF_SQUADS = 3
 UNASSIGNED_SQUAD = 100
@@ -24,16 +26,19 @@ def split_timeslot(timeslot):
 
 
 def replace_in_row(matrix, row_num, from_value, to_value):
+    replaced = False
     row = matrix[row_num]
     if from_value in row:
         i = row.index(from_value)
         if i >= 0:
             row = row[:i]+[to_value]+row[i+1:]
             try:
-                matrix[row_num] = sorted(row)
+                matrix[row_num] = sorted(row, key=abs)
             except Exception as e:
                 print(f'Exception: {e} Bad row: {row}')
                 sys.exit()
+            replaced = True
+    return replaced
 
 
 def range_from_start_end(start, end):
@@ -54,17 +59,34 @@ def range_from_start_end(start, end):
 
 def add_to_calendar(matrix, start, end, squad):
     for day_row in range_from_start_end(start, end):
-        replace_in_row(matrix, day_row, UNASSIGNED_SQUAD, squad)
+        # First, if there is a -squad (meaning "no crew"), replace it with the squad
+        if replace_in_row(matrix, day_row, -1*squad, squad) == False:
+            # If there was no -squad, then replace the unassigned squad
+            replace_in_row(matrix, day_row, UNASSIGNED_SQUAD, squad)
 
 def add_tango_to_calendar(tango_array, start, end, squad):
     for day_row in range_from_start_end(start, end):
         tango_array[day_row] = squad
 
 
-def remove_from_calendar(matrix, start, end, squad):
-    for day_row in range_from_start_end(start, end):
-        replace_in_row(matrix, day_row, squad, UNASSIGNED_SQUAD)
+def remove_from_calendar(matrix, start, end, squad, modify_options: ModifyOptions):
 
+    # TODO: How will this handle the case where there is multiple trucks for a squad?
+    for day_row in range_from_start_end(start, end):
+
+        # We will either obliterate, or just mark as "no crew"
+        # Obliterate means remove the squad from the row
+        # No crew means replace the squad with -squad
+        if modify_options.obliterate:
+            modify_to_value = UNASSIGNED_SQUAD
+        else:
+            modify_to_value = -1*squad
+
+        # First, if there is a squad, replace it with the modify_to_value
+        if replace_in_row(matrix, day_row, squad, modify_to_value) == False:
+            # If there was no squad, then replace the -squad with the modify_to_value
+            replace_in_row(matrix, day_row, -1*squad, modify_to_value)
+        
 
 def build_day():
     # Create a matrix of 3 slots wide for 48 hours.  Each cell is filled with 100 (no crew)
@@ -86,8 +108,11 @@ def day_from_shifts(shifts: list):
         end = int(hrs[1])
         for col in shift.squads:
             add_tango_to_calendar(tango_array, start, end, shift.tango)
-            for _truck in range(col.number_of_trucks):
-                add_to_calendar(day_matrix, start, end, col.squad)
+            if col.number_of_trucks == 0:
+                add_to_calendar(day_matrix, start, end, -1*col.squad)
+            else:
+                for _truck in range(col.number_of_trucks):
+                    add_to_calendar(day_matrix, start, end, col.squad)
 
     return (tango_array, day_matrix)
     
