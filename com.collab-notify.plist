@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+
+    <key>Label</key>
+    <string>com.collaborative.notify.plist</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>9</integer>
+        <key>Minute</key>
+        <integer>3</integer>
+    </dict>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/georgenowakowski/collab/stderr.log</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/gnowakowski/collab/stdout.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string><![CDATA[/usr/local/bin:/usr/local/sbin:/usr/bin:/bin:/usr/sbin:/sbin]]></string>
+      <key>GOOGLE_APPLICATION_CREDENTIALS</key>
+      <string>/Users/georgenowakowski/Projects/EMSCollaborative/collaborative_calendar</string>
+    </dict>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/georgenowakowski/Projects/EMSCollaborative/collaborative_calendar</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/georgenowakowski/caffinate_notify_collab.sh</string>
+    </array>
+
+    <key>Program</key>
+    <string>/Users/georgenowakowski/caffinate_notify_collab.sh</string>
+
+  </dict>
+</plist>

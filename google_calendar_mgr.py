@@ -36,7 +36,7 @@ class GCal:
     TANGO_HOURS = 'B71'
 
     # CALENDAR_TEMPLATE_LOCATION = 'Shift Template!A1:F41'
-    CALENDAR_TEMPLATE_LOCATION = 'Shift Template!A1:G300'
+    CALENDAR_TEMPLATE_LOCATION = 'Shift Template!A1:H300'
 
     calendar_tab = None
 

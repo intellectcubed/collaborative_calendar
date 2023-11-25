@@ -1,10 +1,11 @@
+import csv
+from datetime import datetime
 import os
-import json
 from bcolors import bcolors
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-
+import hashlib
 
 """
 Notification module.
@@ -26,43 +27,61 @@ class Notifier :
 
 
     def get_email_log_dir_name(self, send_date):
-        return f'{self.log_status_path}/{send_date}'
+        return f"{self.log_status_path}/{send_date.strftime('%Y%m%d')}"
+    
+    def get_checksum(self, email_body):
+        """This function returns the checksum of a file."""
+        sha256_hash = hashlib.sha256()
+        sha256_hash.update(email_body.encode('utf-8'))
+        return sha256_hash.hexdigest()    
 
 
-    def should_send_email(self, today, squad):
-        send_date = today.strftime('%Y%m%d')
-        log_dir_name = self.get_email_log_dir_name(send_date, squad)
-        file_name = f'{log_dir_name}/email_log_{squad}.json'
-        return not os.path.exists(file_name)
-        
-
-    def log_sent_email(self, squad, send_date, subject, body, recipients):
+    def get_email_log(self, send_date):
         log_dir_name = self.get_email_log_dir_name(send_date)
-        log_filename = f'{log_dir_name}/email_log_{squad}.json'
+        file_name = f'{log_dir_name}/email_log.csv'
+        if not os.path.exists(file_name):
+            return None
+
+        log = []        
+        with open(file_name, 'r') as reader:
+            sent_reader = csv.reader(reader, delimiter='|')
+            for line in sent_reader:
+                log.append(line)
+
+        return log 
+
+
+    def should_send_email(self, send_date, checksum):
+        log_dir_name = self.get_email_log_dir_name(send_date)
+        file_name = f'{log_dir_name}/email_log.csv'
+        if not os.path.exists(file_name):
+            return True
+        
+        with open(file_name, 'r') as reader:
+            sent_reader = csv.reader(reader, delimiter='|')
+            for line in sent_reader:
+                if line[0].strip() == checksum:
+                    return False
+
+        return True 
+            
+
+    def log_sent_email(self, date, to_email, cc_email, bcc_email, checksum):
+        log_dir_name = self.get_email_log_dir_name(date)
         os.makedirs(log_dir_name, exist_ok=True)
-
-        email_log = {
-            'squad': squad,
-            'subject': subject,
-            'body': body,
-            'recipients': recipients
-        }
-
-        with open(log_filename, 'w') as writer:
-            json.dump(email_log, writer)
-
-        print(f'Saved email log file: {bcolors.OKGREEN}{log_filename}{bcolors.ENDC}')
+        file_name = f'{log_dir_name}/email_log.csv'
+        with open(file_name, 'a') as writer:
+            csv_writer = csv.writer(writer, delimiter='|')
+            csv_writer.writerow([checksum, to_email, cc_email, bcc_email])
 
 
-    def send_email2(self, subject, body, to_email, cc_email=None):
-        conn = smtplib.SMTP_SSL('smtp.mail.yahoo.com', 465) 
-        conn.ehlo()
-        conn.login(self.yahoo_email, self.yahoo_password)
-        conn.sendmail(self.yahoo_email, to_email, body)
-        conn.quit()        
+    def send_email(self, subject, body_text, body_html, to_email, cc_email=None, bcc_email=None, dup_send_override=False):
 
+        checksum = self.get_checksum(body_html)
+        if not dup_send_override and not self.should_send_email(datetime.now(), checksum):
+            print(f'{bcolors.WARNING}Email already sent today{bcolors.ENDC}')
+            return
 
-    def send_email(self, subject, body_text, body_html, to_email, cc_email=None, bcc_email=None):
         # Set up the MIME
         message = MIMEMultipart('alternative')
         message['From'] = f'Somerset County EMS Collaborative <{self.yahoo_email}>'
@@ -76,9 +95,6 @@ class Notifier :
 
         cc_email = '' if cc_email is None else cc_email
         bcc_email = '' if bcc_email is None else bcc_email
-
-        # Attach the body to the email
-        # message.attach(MIMEText(body, 'plain'))
 
         # Connect to Yahoo's SMTP server
         with smtplib.SMTP_SSL('smtp.mail.yahoo.com', 465) as server:
@@ -97,6 +113,7 @@ class Notifier :
             # Send the email
             server.sendmail(self.yahoo_email, recipients, message.as_string())
 
+        self.log_sent_email(datetime.now(), to_email, cc_email, bcc_email, checksum)
 
 # Example usage
 if __name__ == "__main__":

@@ -3,14 +3,10 @@ import datetime
 import os
 from utils import shift_collapse
 from bcolors import bcolors
-
-
 from collab_cal_mgr import CollabCalendarManager
 from models import SchedDate, SquadShift
 from email_templates import shift_template_text, shift_template_html
 from email_manager import Notifier
-
-# from premailer import transform
 
 
 shift_util = shift_collapse.ShiftUtils()
@@ -20,7 +16,7 @@ contacts = None
 args = None
 target_date = None
 
-email_manager = Notifier('/Users/georgenowakowski/Downloads/collab_config', 
+email_manager = Notifier('/Users/georgenowakowski/Downloads/collab_config/sent_mail_log', 
                          '/Users/georgenowakowski/Downloads/collab_config/contacts.json')
 squad_map = {34: 'Green Knoll Rescue Squad', 35: 'Finderne Rescue Squad', 42: 'Manville Rescue Squad', 43: 'Martinsville Rescue Squad', 54: 'Somerville Rescue Squad'}
 
@@ -153,18 +149,27 @@ def format_emails(shifts_by_squad, tangos_by_squad):
 
     return formatted_by_squad
 
-# email_log_root = '/Users/georgenowakowski/Downloads/collab_config/email_notification_logs'
 
-# def store_email_log(shift_by_squad):
-#     for squad in shift_by_squad.keys():
-#         pass
+def send_digest(date_sent, email_log):
+    digest_html = '<html><body>'
+    digest_html += f'<h1>Shifts Sent on: {datetime.datetime.strftime(date_sent, "%m-%d-%Y")}</h1>'
+    digest_html += f'<table style="border: 2px solid blue">'
+    digest_html += f'<tr style="border: 2px solid blue"><th>To list</th><th>Cc list</th><th>Bcc list</th></tr>'
+
+    digest_text = f'Shifts Sent on: {datetime.datetime.strftime(date_sent, "%m-%d-%Y")}\n'
+    digest_text += 'To list|Cc list|Bcc list\n'
 
 
-# def should_send_email(squad):
-#     send_date = target_date.strftime('%Y%m%d')
-#     log_dir_name = f'{email_log_root}/{send_date}'
-#     file_name = f'{log_dir_name}/email_log_{squad}.json'
-#     return not os.path.exists(file_name)
+    for entry in email_log:
+        digest_html += f'<tr style="border: 1px solid blue;background-color: white"><td style="border: 2px solid blue">{entry[1]}</td><td style="border: 2px solid blue">{entry[2]}</td><td style="border: 2px solid blue">{entry[3]}</td></tr>'
+        digest_text += f'{entry[1]}|{entry[2]}|{entry[3]}\n'
+
+    digest_html += '</table>'
+    digest_html += '</body></html>'
+
+    email_manager.send_email(subject='Somerset County EMS Collaborative - Upcoming Shifts Notification Digest', 
+                             to_email='gmn314@yahoo.com', body_html=digest_html, 
+                             body_text=digest_text, bcc_email=None, cc_email=None)
 
 
 def notify_crews():
@@ -176,6 +181,11 @@ def notify_crews():
         send_email(contacts_for_squad.to_list, 
                                       contacts_for_squad.cc_list, 
                                       email_body_by_squad[squad] )
+
+
+    send_date = datetime.datetime.now()
+    email_log = email_manager.get_email_log(send_date)        
+    send_digest(send_date, email_log)
         
 
 def send_email(_to_list, _cc_list, body):
@@ -212,10 +222,11 @@ if __name__ == '__main__':
     args = parse_args()
 
     if args.date is None:
-        print('No date suppried')
         target_date = datetime.datetime.now()
+        print(f'No date supplied - using current date: {datetime.datetime.strftime("%m-%d-%Y")}' )
     else:    
         target_date = datetime.datetime.strptime(args.date, '%Y%m%d')
 
     init()
     notify_crews()
+

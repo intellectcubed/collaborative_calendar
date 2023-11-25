@@ -89,19 +89,22 @@ def build_calendar():
 
 
     rows = collab_cal_manager.get_calendar_template()
-    # Columns: [day, slot, squad1, squad2, squad3, squad4]
+    # Columns: [month_year, day, day_of_week, slot, squad1, squad2, squad3, squad4]
     changes_by_day = []
     prev_day = -1
     for row in rows:
+        # break if row is empty
+        if is_row_empty(row):
+            break
         if row[0] == tab:
-            if row[1] != prev_day:
+            if row[2] != prev_day:
                 changes = []
                 changes_by_day.append(changes)
-                prev_day = row[1]
+                prev_day = row[2]
 
-            start, end = split_timeslot(row[2])
-            for squad in row[3:]:
-                changes.append(ModifyShiftRequest(start, end, int(squad), 77, True))
+            start, end = split_timeslot(row[3])
+            for squad in row[4:]:
+                changes.append(ModifyShiftRequest(start, end, int(squad), 77, ModifyOptions(is_add=True, audit=False)))
 
     # Now apply the changes
     day = 0
@@ -224,7 +227,8 @@ def assign_tango():
                 print(f'Selected squad: {new_tango} is not on duty: {on_duty}')
 
         start, end = split_timeslot(day_slots[slot_idx].slot)
-        tango_changes.append(ModifyShiftRequest(start, end, new_tango, new_tango, True))
+        modify_options : ModifyOptions = ModifyOptions(is_add=True, audit=False)
+        tango_changes.append(ModifyShiftRequest(start, end, new_tango, new_tango, modify_options))
 
     collab_cal_manager.assign_tango(target_date, tango_changes)
 
