@@ -1,7 +1,6 @@
-import time
 from calendar_slot_utils import add_to_calendar, build_tango_slots, remove_from_calendar, get_slots, build_day, add_tango_to_calendar
 from calendar_formatter import google_to_shifts, day_from_shifts, to_squad_shifts, shifts_to_google, pad_day_matrix, CALENDAR_ROWS, CALENDAR_COLS
-from models import ModifyShiftRequest, SchedDate, SquadContacts, SquadShift, MAX_TRUCKS_PER_SHIFT
+from models import ModifyShiftRequest, SchedDate, SquadContacts, SquadShift, MAX_TRUCKS_PER_SHIFT, squads
 from google_calendar_mgr import LOCATION_RE
 from collections import defaultdict
 import datetime
@@ -154,10 +153,19 @@ class CollabCalendarManager:
                             shift.tango = prompt_method(start, end, squad_array)
 
 
+    def fill_in_days(self, first_offset, num_days):
+        days = []
+        for day in range(first_offset, num_days):
+            days.append(day)
+
+        return days
+
+
     def add_remove_shifts(self, target_date, changes, territory_map, initial_build=False, prompt_method=None, territory_overrides=None):
         """
         changes is a list of ModifyShiftRequest requests
         """
+        print(f'Processing date: {datetime.datetime.strftime(target_date, "%m/%d/%Y")}')
         if initial_build:
             matrix = build_day()
             tango_array = build_tango_slots()
@@ -176,9 +184,9 @@ class CollabCalendarManager:
 
             # add_tango_to_calendar(tango_array, change.start_time, change.end_time, change.tango)
 
-        print(f'Matrix after adding shift...')
-        self.show_matrix(tango_array, matrix)
-        print('=====')
+        # print(f'Matrix after adding shift...')
+        # self.show_matrix(tango_array, matrix)
+        # print('=====')
         start, end = self.get_shift_range(target_date)
         slots = get_slots(tango_array, matrix, start, end)
         shifts = to_squad_shifts(target_date, slots, territory_map, territory_overrides)
@@ -396,6 +404,17 @@ class CollabCalendarManager:
 
         formatted_rows = shifts_to_google(shifts)
         self.gcal.write_day_to_calendar(target_date, formatted_rows)
+
+
+    def populate_day_headers(self, target_tab):
+        # target_tab will be Month Year for example: August 2023
+        target_month = datetime.datetime.strptime(target_tab, '%B %Y')
+
+        first_week_offset = target_month.weekday() + 1
+        if first_week_offset == 7:
+            first_week_offset = 0
+        days_in_month = monthrange(target_month.year, target_month.month)[1]
+        self.gcal.populate_day_headers(target_tab, first_week_offset, days_in_month)        
 
 
     def apply_shift_override(self, override: SchedDate, territory_map):
@@ -616,11 +635,19 @@ class CollabCalendarManager:
         """
         min_hours = 1000
         min_squad = None
-        for _squad in duty_squads:
-            squad: SquadShift = _squad
-            if tango_hours[squad.squad] < min_hours:
-                min_hours = tango_hours[squad.squad]
-                min_squad = squad.squad
+        if len(duty_squads) == 0:
+            print(f'{bcolors.FAIL}No squads on duty!{bcolors.ENDC}')
+            for _squad in tango_hours:
+                squad = _squad
+                if tango_hours[squad] < min_hours:
+                    min_hours = tango_hours[squad]
+                    min_squad = squad
+        else:
+            for _squad in duty_squads:
+                squad: SquadShift = _squad
+                if tango_hours[squad.squad] < min_hours:
+                    min_hours = tango_hours[squad.squad]
+                    min_squad = squad.squad
 
         return min_squad
 
@@ -634,7 +661,7 @@ class CollabCalendarManager:
         ## Returns
         Nada 
         """
-        for day in range(1, monthrange(target_date.year, target_date.month)[1]):
+        for day in range(1, monthrange(target_date.year, target_date.month)[1]+1):
             target_date = target_date.replace(day=day)
             print(f'*** Assigning tango to day: {day}')
             day_rows = self.gcal.get_day_from_calendar(target_date)

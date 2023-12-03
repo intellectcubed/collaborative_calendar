@@ -34,7 +34,7 @@ def make_formatted_timeslot(shift:SchedDate):
     Takes a SchedDate and formats: 
     '0000 - 0000\n(Tango: n)'
     """
-    if shift.tango == 100 or len(shift.squads) == 0 or shift.tango is None:
+    if shift.tango == 100 or shift.tango is None:
         tango_str = ''
     else:
         tango_str = f'\n(Tango:{shift.tango})'

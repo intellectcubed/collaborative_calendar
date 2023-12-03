@@ -39,6 +39,10 @@ class GCal:
     CALENDAR_TEMPLATE_LOCATION = 'Shift Template!A1:H300'
 
     calendar_tab = None
+    row_offset = 5
+    rows_per_month_row = 10
+    cols_per_day = 4
+
 
 
     def __init__(self, spreadsheet_id, config_dir=None):
@@ -138,12 +142,38 @@ class GCal:
         else:
             month_row = int(((day - days_on_first_row) + 6) / 7)
 
-        return month_row    
+        return month_row 
 
+
+    def populate_day_headers(self, target_tab, first_week_offset, days_in_month):
+        """
+        Populate the days of the month on the calendar
+        """
+        start_col = 'B'
+        end_col = 'AC'
+        days_to_skip = first_week_offset
+        calendar_day = 1
+        for week in range(0, 6):
+            row = week * self.rows_per_month_row + self.row_offset + 1
+            week_row = []
+            for day in range(0, 7):
+                if days_to_skip > 0 or calendar_day > days_in_month:
+                    days_to_skip -= 1
+                    day_row = ['']*self.cols_per_day
+                else:   
+                    day_row = [calendar_day] + [''] * (self.cols_per_day - 1)
+                    calendar_day += 1
+                week_row.extend(day_row)
+
+            self.update_values(f'{target_tab}!{start_col}{row}:{end_col}{row}', "USER_ENTERED", [week_row])
+   
+
+    def update_header_row(self, tab, week_of_month, header_row):
+        location = self.get_header_location(tab, week_of_month)
+        self.update_values(f'{location}', "USER_ENTERED", header_row)
+        
 
     def get_cell_range(self, target_date):
-        row_offset = 5
-        rows_per_month_row = 10
         rows_to_skip_per_month_row = 2
         cells_to_fill = 5
 
@@ -169,7 +199,7 @@ class GCal:
         # print(f'Day of week for: {target_month} day: {day} is {day_of_week}')
         col_tuple = days_offsets[day_of_week]
 
-        start_row = row_offset + rows_to_skip_per_month_row + (month_row*rows_per_month_row)
+        start_row = self.row_offset + rows_to_skip_per_month_row + (month_row*self.rows_per_month_row)
         end_row = start_row + cells_to_fill
 
         return f'{col_tuple[0]}{start_row}:{col_tuple[1]}{end_row}'

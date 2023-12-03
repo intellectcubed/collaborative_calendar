@@ -223,7 +223,7 @@ if __name__ == '__main__':
 
     if args.date is None:
         target_date = datetime.datetime.now()
-        print(f'No date supplied - using current date: {datetime.datetime.strftime("%m-%d-%Y")}' )
+        print(f'No date supplied - using current date: {target_date.strftime("%m-%d-%Y")}' )
     else:    
         target_date = datetime.datetime.strptime(args.date, '%Y%m%d')
 

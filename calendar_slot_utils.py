@@ -51,9 +51,6 @@ def range_from_start_end(start, end):
     if end_interval <= start_interval:
         end_interval += 24
 
-    
-    print(f'Returning range: {start_interval} - {end_interval}')
-
     return range(start_interval, end_interval)
 
 

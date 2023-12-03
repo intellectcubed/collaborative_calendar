@@ -8,6 +8,7 @@ This is an interactive terminal client to the Collaborative Calendar utility
 """
 
 import argparse
+import calendar
 from dataclasses import dataclass
 from simple_term_menu import TerminalMenu
 from bcolors import bcolors
@@ -26,6 +27,7 @@ current_tab: str = None
 territory_map = None
 config_dir = '/Users/georgenowakowski/Downloads/collab_config'
 target_date = None
+target_tab = None
 args = None
 
 def prompt_menu(title, options):
@@ -77,34 +79,75 @@ def get_target_date():
                 return datetime(year, month, day)
             else:
                 print('Please enter a valid month and day')
-        
-        
-def build_calendar():
-    os.system('clear')
-    """Build calendar from the templates"""
-    print(f'Enter date to build')
-    target_date = get_target_date()
-    # Assumes tab is named Month Year (eg: October 2023)
-    tab = target_date.strftime('%B %Y')
 
+
+def find_day_of_week_for_first_day_of_month(year, month):
+  
+    # set the first day of the week to Sunday
+    calendar.setfirstweekday(6)
+
+    # get the monthrange for November 2023
+    monthrange = calendar.monthrange(year, month)
+
+    # print the weekday of the first day of the month
+    print(f"The first day of the month is a {calendar.day_name[monthrange[0]]}")
+
+    # print the number of days in the month
+    print(f"The number of days in the month is {monthrange[1]}")
+
+    return calendar.day_name[monthrange[0]]
+
+
+def fill_calendar_dates(month, year):
+    """Fill the calendar with dates"""
+    calendar.setfirstweekday(6)
+    cal = calendar.monthcalendar(year, month)
+    for week in cal:
+        print(week)
+
+
+def populate_day_headers():
+    collab_cal_manager.populate_day_headers(target_tab)
+
+
+def build_calendar():
+    """Build calendar from the templates"""
+    os.system('clear')
+    target_date = datetime.strptime(target_tab, '%B %Y')
 
     rows = collab_cal_manager.get_calendar_template()
     # Columns: [month_year, day, day_of_week, slot, squad1, squad2, squad3, squad4]
+    first_weekday_of_month = find_day_of_week_for_first_day_of_month(target_date.year, target_date.month)
+    encountered_first_day = False
     changes_by_day = []
-    prev_day = -1
+    prev_day = ''
+    day = 0
+    monthrange = calendar.monthrange(target_date.year, target_date.month)
     for row in rows:
+        if encountered_first_day == False:
+            if row[2] == first_weekday_of_month:
+                encountered_first_day = True
+            else:
+                print(f'skipping row day: {row[2]} first_weekday_of_month: {first_weekday_of_month}')
+                continue
         # break if row is empty
         if is_row_empty(row):
             break
-        if row[0] == tab:
-            if row[2] != prev_day:
-                changes = []
-                changes_by_day.append(changes)
-                prev_day = row[2]
 
-            start, end = split_timeslot(row[3])
-            for squad in row[4:]:
-                changes.append(ModifyShiftRequest(start, end, int(squad), 77, ModifyOptions(is_add=True, audit=False)))
+        if row[2] != prev_day:
+            day += 1
+            #  break if day is greater than the number of days in the month
+            if day > monthrange[1]:
+                break
+
+            changes = []
+            changes_by_day.append(changes)
+            prev_day = row[2]
+
+
+        start, end = split_timeslot(row[3])
+        for squad in row[4:]:
+            changes.append(ModifyShiftRequest(start, end, int(squad), 77, ModifyOptions(is_add=True, audit=False)))
 
     # Now apply the changes
     day = 0
@@ -274,13 +317,12 @@ def tally_shifts(target_date=None, save_tally=False):
 
 
 def assign_tangos():
-    target_date = get_target_date()    
-    # (hours_by_squad, tango_hours, calendar_warnings) = collab_cal_manager.tally_shifts(target_date)
+    target_date = datetime.strptime(target_tab, '%B %Y')
+   
     (hours_by_tango, tango_hours, calendar_warnings) = tally_shifts(target_date)
     # tango_hours = {34:0, 35:0, 42:0, 43:0, 54:0}
     new_tangos = collab_cal_manager.assign_tangos(target_date=target_date, tango_hours=tango_hours)
     print(new_tangos)
-        
 
 
 def revert():
@@ -324,25 +366,6 @@ def read_territory_map():
         return territory_map
 
 
-def select_tab(override_date=None):
-    tabs = collab_cal_manager.get_tabs()
-
-    if override_date is not None:
-        current_tab = datetime.strftime('%B %Y')
-    else:
-        current_tab = datetime.now().strftime('%B %Y')
-
-    if current_tab in tabs:
-        sel = input(f'Use current tab? {bcolors.OKGREEN}{current_tab}{bcolors.ENDC} y/n (Default=y) ')
-        if len(sel) == 0 or sel.lower() == 'y':
-            return current_tab
-
-    print(f'current tab: {current_tab} is not in tabs: {tabs}')
-    
-    selected_tab = prompt_menu('Select target tab: ', tabs)
-    return selected_tab
-
-
 def quick_test():
     hours_by_squad = {34: 126, 35: 147, 54: 210, 42: 192, 43: 162}
     tango_hours = {34: 45, 35: 72, 42: 102, 43: 87, 54: 102}
@@ -355,9 +378,52 @@ def prompt_for_environment():
     return env_sel.lower()
 
 
+def get_month_tabs():
+    """
+    Get tabs that are months return sorted list of months
+    """
+    tabs = collab_cal_manager.get_tabs()
+    month_tabs = {}
+    for tab in tabs:
+        try:
+            tab_date = datetime.strptime(tab, '%B %Y')
+            month_tabs[tab_date] = tab
+        except:
+            continue
+
+    keys = sorted(month_tabs.keys())
+    sorted_tabs = []
+    for key in keys:
+        sorted_tabs.append(month_tabs[key])
+
+    return sorted_tabs
+
+
+def select_target_tab(specified_date=None):
+    tabs = collab_cal_manager.get_tabs()
+    if specified_date is None:
+        current_tab = datetime.now().strftime('%B %Y')
+    else:
+        current_tab = datetime.strftime(specified_date, '%B %Y')
+
+    tabs = get_month_tabs()
+
+    if current_tab in tabs:
+        sel = input(f'Use current tab? {bcolors.OKGREEN}{current_tab}{bcolors.ENDC} y/n (Default=y) ')
+        if len(sel) == 0 or sel.lower() == 'y':
+            return current_tab
+    else:
+        print(f'current tab: {current_tab} is not in tabs: {tabs}')
+        input("Press Enter to continue...")
+    
+    selected_tab = prompt_menu('Select target tab: ', tabs)
+    return selected_tab
+
+
 def main(environment=None, target_date=None):
     global collab_cal_manager
     global territory_map
+    global target_tab
 
     os.system('clear')
     if environment is None:
@@ -365,7 +431,8 @@ def main(environment=None, target_date=None):
 
     collab_cal_manager = CollabCalendarManager(environment, 
                                                '/Users/georgenowakowski/Downloads/collab_config')
-    collab_cal_manager.set_calendar_tab(select_tab(target_date))   
+    target_tab = select_target_tab(target_date)
+    collab_cal_manager.set_calendar_tab(target_tab)   
     territory_map = read_territory_map()
     collab_cal_manager.set_territory_map(territory_map)
 
@@ -379,7 +446,8 @@ def main(environment=None, target_date=None):
         options = [
             "[n] New month From Template", 
             "[s] Tally Shifts",
-            "[p] Populate Tangos"
+            "[p] Populate Tangos",
+            "[h] Populate Day Headers"
         ]
         selection = prompt_menu('Main actions', options)
     else:
@@ -425,6 +493,8 @@ def main(environment=None, target_date=None):
             assign_tangos()
         case 'Tally Shifts':
             tally_shifts(save_tally=True)
+        case 'Populate Day Headers':
+            populate_day_headers()
         case '_':
             print('Invalid menu option!!')
 
@@ -458,13 +528,13 @@ if __name__ == '__main__':
     if args.capture_month:
         os.system('clear')
         collab_cal_manager = CollabCalendarManager('devo', '/Users/georgenowakowski/Downloads/collab_config')
-        collab_cal_manager.capture_month(select_tab())
+        collab_cal_manager.capture_month(select_month_tab())
         sys.exit()
 
     if args.restore_month:
         os.system('clear')
         collab_cal_manager = CollabCalendarManager('devo', '/Users/georgenowakowski/Downloads/collab_config')
-        collab_cal_manager.restore_month(select_tab())
+        collab_cal_manager.restore_month(select_month_tab())
         sys.exit()
 
     # if args.build_tests:

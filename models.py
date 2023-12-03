@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 MAX_TRUCKS_PER_SHIFT = 3
+squads = [34,35,42,43,54]
+
 
 @dataclass
 class ModifyOptions:
