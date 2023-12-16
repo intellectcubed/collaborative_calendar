@@ -1,3 +1,4 @@
+import dataclasses
 import re
 from models import SchedDate, SquadShift
 from calendar_slot_utils import day_from_shifts, split_timeslot
@@ -48,11 +49,12 @@ def make_formatted_shift(squad_shift: SquadShift):
     '43\n[34,43]'
     '43\n[All]'
     """
-    trucks = ''
-    if squad_shift.number_of_trucks > 1:
-        trucks = f'({squad_shift.number_of_trucks} trucks)'
+    # trucks = ''
+    # if squad_shift.number_of_trucks > 1:
+    #     trucks = f'({squad_shift.number_of_trucks} trucks)'
 
-    return f'{squad_shift.squad}{trucks}\n{str(squad_shift.squad_covering)}'
+    # return f'{squad_shift.squad}{trucks}\n{str(squad_shift.squad_covering)}'
+    return f'{squad_shift.squad}\n{str(squad_shift.squad_covering)}'
 
 
 def pad_slot_row(row):
@@ -324,9 +326,9 @@ def to_squad_shifts(target_date, raw_slots, territory_map, overrides):
                 print(f'{bcolors.bcolors.BOLD}{bcolors.bcolors.FAIL}Unable to find territories for key: {key}{bcolors.bcolors.ENDC}')
                 sys.exit()
             for squad in unique_squads:
-                shift.append(SquadShift(squad=squad, number_of_trucks=tally.get(squad), squad_covering=territories.get(squad)))
+                append_squad_shift(shift, SquadShift(squad=squad, number_of_trucks=tally.get(squad), squad_covering=territories.get(squad)))
         elif len(unique_squads) == 1: 
-            shift.append(SquadShift(squad=unique_squads[0], number_of_trucks=tally.get(unique_squads[0]), squad_covering=['All']))
+            append_squad_shift(shift, SquadShift(squad=unique_squads[0], number_of_trucks=tally.get(unique_squads[0]), squad_covering=['All']))
 
         for no_crew_squad in no_crew:
             shift.append(SquadShift(squad=no_crew_squad, number_of_trucks=0, squad_covering=['No Crew']))
@@ -336,6 +338,18 @@ def to_squad_shifts(target_date, raw_slots, territory_map, overrides):
     sort_squads_in_shifts(squad_shifts)
 
     return squad_shifts
+
+def append_squad_shift(shift, squad_shift: SquadShift):
+    """
+    Append a SquadShift to a shift (SchedDate object)
+    """
+    # If more than one truck, clone shift and append
+    if squad_shift.number_of_trucks > 1:
+        for _truck in range(squad_shift.number_of_trucks):
+            cloned_shift = dataclasses.replace(squad_shift)            
+            shift.append(cloned_shift)
+    else:   
+        shift.append(squad_shift)
 
 
 def sort_squads_in_shifts(shifts):
