@@ -25,7 +25,7 @@ from calendar import monthrange
 collab_cal_manager: CollabCalendarManager = None
 current_tab: str = None
 territory_map = None
-config_dir = '/Users/georgenowakowski/Downloads/collab_config'
+config_dir = '~/Downloads/collab_config'
 target_date = None
 target_tab = None
 args = None
@@ -430,7 +430,7 @@ def main(environment=None, target_date=None):
         environment = prompt_for_environment()
 
     collab_cal_manager = CollabCalendarManager(environment, 
-                                               '/Users/georgenowakowski/Downloads/collab_config')
+                                               '~/Downloads/collab_config')
     target_tab = select_target_tab(target_date)
     collab_cal_manager.set_calendar_tab(target_tab)   
     territory_map = read_territory_map()
