@@ -331,8 +331,6 @@ class CollabCalendarManager:
         new_audit_rows = []
         for _change in changes:
             change: ModifyShiftRequest = _change
-            if change.modify_options.audit == False:
-                continue
 
             action = 'Add Crew' if change.modify_options.is_add else 'No Crew'
             slot = f'{change.start_time:04d} - {change.end_time:04d}'

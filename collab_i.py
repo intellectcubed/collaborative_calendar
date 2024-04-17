@@ -35,7 +35,7 @@ def prompt_menu(title, options):
     menu_entry_index = terminal_menu.show()
     selection = options[menu_entry_index]
     if selection is not None:
-        print('Returning: ' + re.sub('\[.\]\s', '', selection))
+        # print('Returning: ' + re.sub('\[.\]\s', '', selection))
         return re.sub('\[.\]\s', '', selection)
 
 
@@ -217,7 +217,7 @@ def modify_crew(options: ModifyOptions, is_audit=True):
     squad_sel = int(prompt_menu('Squad? ', ['34', '35', '42', '43', '54']))
     print(f'Going to {action} squad: {squad_sel} to slot: {slot_sel}')
 
-    if (options.audit):
+    if (is_audit):
         request_source = prompt_menu('Request source: ', ['[g] GroupMe', '[t] Text', '[e] Email', '[o] Other'])
         if request_source == 'Other':
             request_source = input('Enter source: ')
