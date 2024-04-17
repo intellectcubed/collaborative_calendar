@@ -161,7 +161,8 @@ class CollabCalendarManager:
         return days
 
 
-    def add_remove_shifts(self, target_date, changes, territory_map, initial_build=False, prompt_method=None, territory_overrides=None):
+    def add_remove_shifts(self, target_date, changes, territory_map, is_audited=False,
+                          initial_build=False, prompt_method=None, territory_overrides=None):
         """
         changes is a list of ModifyShiftRequest requests
         """
@@ -182,11 +183,6 @@ class CollabCalendarManager:
             else:
                 remove_from_calendar(matrix, change.start_time, change.end_time, change.squad, change.modify_options)
 
-            # add_tango_to_calendar(tango_array, change.start_time, change.end_time, change.tango)
-
-        # print(f'Matrix after adding shift...')
-        # self.show_matrix(tango_array, matrix)
-        # print('=====')
         start, end = self.get_shift_range(target_date)
         slots = get_slots(tango_array, matrix, start, end)
         shifts = to_squad_shifts(target_date, slots, territory_map, territory_overrides)
@@ -197,7 +193,8 @@ class CollabCalendarManager:
 
         formatted_rows = shifts_to_google(shifts)
         self.gcal.write_day_to_calendar(target_date, formatted_rows)
-        if not initial_build:
+        
+        if not initial_build and is_audited:
             self.audit_changes(target_date, changes)
 
 

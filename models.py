@@ -8,7 +8,6 @@ squads = [34,35,42,43,54]
 @dataclass
 class ModifyOptions:
     is_add: bool = True
-    audit: bool = True
     obliterate: bool = False # Remove without specifying 'No Crew'
     requested_by: str = None
     reason: str = None

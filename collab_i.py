@@ -34,8 +34,9 @@ def prompt_menu(title, options):
     terminal_menu = TerminalMenu(title=title, menu_entries= options)
     menu_entry_index = terminal_menu.show()
     selection = options[menu_entry_index]
-    
-    return re.sub('\[.\]\s', '', selection)
+    if selection is not None:
+        print('Returning: ' + re.sub('\[.\]\s', '', selection))
+        return re.sub('\[.\]\s', '', selection)
 
 
 def prompt_menu_multiselect(title, options, show_multi_select_hint=False):
@@ -173,7 +174,7 @@ def prompt_tango_method(start, end, squads):
     return int(prompt_menu(title, [str(num) for num in squads]))
     
 
-def modify_crew(options: ModifyOptions):
+def modify_crew(options: ModifyOptions, is_audit=True):
 
     # print(f'Are we going to capture test cases?  {args.build_tests}')
     # input('Press enter to continue...')
@@ -216,18 +217,20 @@ def modify_crew(options: ModifyOptions):
     squad_sel = int(prompt_menu('Squad? ', ['34', '35', '42', '43', '54']))
     print(f'Going to {action} squad: {squad_sel} to slot: {slot_sel}')
 
-    request_source = prompt_menu('Request source: ', ['[g] GroupMe', '[t] Text', '[e] Email', '[o] Other'])
-    if request_source == 'Other':
-        request_source = input('Enter source: ')
+    if (options.audit):
+        request_source = prompt_menu('Request source: ', ['[g] GroupMe', '[t] Text', '[e] Email', '[o] Other'])
+        if request_source == 'Other':
+            request_source = input('Enter source: ')
 
-    reason = input('Reason: ')
+        reason = input('Reason: ')
 
-    options.requested_by = request_source or ''
-    options.reason = reason or ''
+        options.requested_by = request_source or ''
+        options.reason = reason or ''
 
     changes = []
     changes.append(ModifyShiftRequest(start, end, squad_sel, 77, options))
-    collab_cal_manager.add_remove_shifts(target_date, changes, territory_map, prompt_method=prompt_tango_method)
+    collab_cal_manager.add_remove_shifts(target_date, changes, territory_map, is_audited=is_audit,
+        prompt_method=prompt_tango_method)
 
     if args.build_tests:
         save_test_case(target_date, changes)
@@ -471,19 +474,19 @@ def main(environment=None, target_date=None):
         case 'New month From Template':
             build_calendar()
         case 'Remove Crew (No Audit)':
-            options: ModifyOptions = ModifyOptions(is_add=False, audit=False)
-            modify_crew(options)
+            options: ModifyOptions = ModifyOptions(is_add=False)
+            modify_crew(options, is_audit=False)
         case 'Add Crew (No Audit)':
-            options: ModifyOptions = ModifyOptions(is_add=True, audit=False)
-            modify_crew(options)
+            options: ModifyOptions = ModifyOptions(is_add=True)
+            modify_crew(options, is_audit=False)
         case 'No Crew':
-            options: ModifyOptions = ModifyOptions(is_add=False, audit=True)
+            options: ModifyOptions = ModifyOptions(is_add=False)
             modify_crew(options)
         case 'Obliterate Crew (remove with no Audit)':
-            options: ModifyOptions = ModifyOptions(is_add=False, audit=False, obliterate=True)
+            options: ModifyOptions = ModifyOptions(is_add=False, obliterate=True)
             modify_crew(options)
         case 'Add Crew':
-            options: ModifyOptions = ModifyOptions(is_add=True, audit=True)
+            options: ModifyOptions = ModifyOptions(is_add=True)
             modify_crew(options)
         case 'Assign Tango':
             assign_tango()
