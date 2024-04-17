@@ -350,7 +350,7 @@ class CollabCalendarManager:
             new_audit_rows.append(row)
 
         self.gcal.append_to_audit_rows(new_audit_rows)
-        
+       
 
 
     def find_shift(self, shifts, hours) -> SchedDate:    
@@ -381,6 +381,8 @@ class CollabCalendarManager:
 
 
     def assign_tango(self, target_date, tangos):
+        self.save_day(target_date)
+
         day_shifts = self.gcal.get_day_from_calendar(target_date)
         shifts = google_to_shifts(day_shifts, target_date)
 

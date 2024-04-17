@@ -54,7 +54,10 @@ def make_formatted_shift(squad_shift: SquadShift):
     #     trucks = f'({squad_shift.number_of_trucks} trucks)'
 
     # return f'{squad_shift.squad}{trucks}\n{str(squad_shift.squad_covering)}'
-    return f'{squad_shift.squad}\n{str(squad_shift.squad_covering)}'
+    if len(squad_shift.squad_covering) == 0:
+        return f"{squad_shift.squad}\n['No Crew']"
+    else:
+        return f'{squad_shift.squad}\n{str(squad_shift.squad_covering)}'
 
 
 def pad_slot_row(row):

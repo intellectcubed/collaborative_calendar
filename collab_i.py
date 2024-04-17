@@ -25,7 +25,7 @@ from calendar import monthrange
 collab_cal_manager: CollabCalendarManager = None
 current_tab: str = None
 territory_map = None
-config_dir = '~/Downloads/collab_config'
+config_dir = '/Users/gman/Downloads/collab_config'
 target_date = None
 target_tab = None
 args = None
@@ -273,7 +273,7 @@ def assign_tango():
                 print(f'Selected squad: {new_tango} is not on duty: {on_duty}')
 
         start, end = split_timeslot(day_slots[slot_idx].slot)
-        modify_options : ModifyOptions = ModifyOptions(is_add=True, audit=False)
+        modify_options : ModifyOptions = ModifyOptions(is_add=True)
         tango_changes.append(ModifyShiftRequest(start, end, new_tango, new_tango, modify_options))
 
     collab_cal_manager.assign_tango(target_date, tango_changes)
@@ -432,8 +432,7 @@ def main(environment=None, target_date=None):
     if environment is None:
         environment = prompt_for_environment()
 
-    collab_cal_manager = CollabCalendarManager(environment, 
-                                               '~/Downloads/collab_config')
+    collab_cal_manager = CollabCalendarManager(environment, config_dir)
     target_tab = select_target_tab(target_date)
     collab_cal_manager.set_calendar_tab(target_tab)   
     territory_map = read_territory_map()
