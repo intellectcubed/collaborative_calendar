@@ -40,3 +40,9 @@ sudo launchctl load ~/Library/LaunchAgents/com.collab.notify.plist
 
 sudo launchctl unload ~/Library/LaunchAgents/com.collab.notify.plist
 ```
+
+### TODO: 
+
+* Save whole month before performing aggregate operations (such as assign_tango).  Restore previous state
+* add 30 minute granularity
+* 

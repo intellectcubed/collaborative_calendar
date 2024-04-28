@@ -198,6 +198,30 @@ class CollabCalendarManager:
             self.audit_changes(target_date, changes)
 
 
+    def adjust_territories(self, target_date, shifts, change_slot_idx, territory_map):
+        """
+        Adjust the territories to the slot in the day and write to calendar:
+        target_date - which day to adjust
+        shifts - (list of SchedDate) the shifts for that day
+        change_slot_idx - the slot to change
+        territory_map - the map of territories (example: {43: [43], 54: [34,35,42,54]})
+        """
+        # Save a snapshot of the day
+        self.save_day(target_date)
+        # Get the slot
+        shift = shifts[change_slot_idx]
+        # Get the squads
+        squads = shift.squads
+        # Assign the territories to the squads
+        for _squad in squads:
+            squad: SquadShift = _squad
+            squad.squad_covering = territory_map[squad.squad]
+
+        # Write the day back to the calendar
+        formatted_rows = shifts_to_google(shifts)
+        self.gcal.write_day_to_calendar(target_date, formatted_rows)
+
+
     def pad_location(self, location:str):
         """Expand the location range to include all rows/cols within a day
         
@@ -649,7 +673,7 @@ class CollabCalendarManager:
         return min_squad
 
 
-    def assign_tangos(self, target_date, tango_hours):
+    def assign_tangos(self, target_tab, target_date, tango_hours):
         """Iterate over month, for each day, assign tango to the squad with the lowest hours
         ## Parameters:
         * target_date (datetime) - Just uses month/year
@@ -658,10 +682,13 @@ class CollabCalendarManager:
         ## Returns
         Nada 
         """
+        self.capture_month(target_tab)
+
         for day in range(1, monthrange(target_date.year, target_date.month)[1]+1):
             target_date = target_date.replace(day=day)
             print(f'*** Assigning tango to day: {day}')
             day_rows = self.gcal.get_day_from_calendar(target_date)
+            print(f'Got day rows: {day_rows}')
             day_shifts = google_to_shifts(day_rows, target_date)
             is_modified = False
             for _shift in day_shifts:

@@ -320,11 +320,14 @@ def tally_shifts(target_date=None, save_tally=False):
 
 
 def assign_tangos():
+    """
+    count the shifts and assign tangos for the whole month
+    """
     target_date = datetime.strptime(target_tab, '%B %Y')
    
     (hours_by_tango, tango_hours, calendar_warnings) = tally_shifts(target_date)
     # tango_hours = {34:0, 35:0, 42:0, 43:0, 54:0}
-    new_tangos = collab_cal_manager.assign_tangos(target_date=target_date, tango_hours=tango_hours)
+    new_tangos = collab_cal_manager.assign_tangos(target_tab, target_date=target_date, tango_hours=tango_hours)
     print(new_tangos)
 
 
@@ -422,6 +425,189 @@ def select_target_tab(specified_date=None):
     selected_tab = prompt_menu('Select target tab: ', tabs)
     return selected_tab
 
+def bulk_add_remove():
+    pass
+    # os.system('clear')
+    # print(f'{bcolors.OKGREEN}Bulk Add/Remove{bcolors.ENDC}')
+    # print(f'{bcolors.OKGREEN}Action: [+/-], Date: 4/28/2024, Timeslot: 600-1800, Squad with optional territories: 42[35/43], Audit: [GroupMe] Javier informed{bcolors.ENDC}')
+    # print(f'{bcolors.OKBLUE}Examples:{bcolors.ENDC}')
+    # print(f'{bcolors.OKBLUE}+,4/28/2024,600-1800,42[42],[GroupMe] Javier informed 4/24@10:00{bcolors.ENDC}')
+    # print(f'{bcolors.OKBLUE}-,4/30/2024,600-1800,34,[GroupMe] No Crew{bcolors.ENDC}')
+    # print(f'{bcolors.OKGREEN}----------------{bcolors.ENDC}')
+    # target_date = get_target_date()
+    # sched_dates = collab_cal_manager.get_day_from_calendar(target_date)
+    # timeslots = []
+    # for _sched_date in sched_dates:
+    #     sched_date: SchedDate = _sched_date
+
+    #     timeslots.append(sched_date.slot)
+    #     shift_str = ''
+    #     for _squad_shift in sched_date.squads:
+    #         squad_shift: SquadShift = _squad_shift
+    #         shift_str += f'{bcolors.REVGREEN}{squad_shift.squad}{bcolors.ENDC} '
+    #         shift_str += f'{bcolors.OKGREEN}'
+    #         if squad_shift.number_of_trucks > 1:
+    #             shift_str += f' (Trucks: {squad_shift.number_of_trucks})'
+    #         shift_str += str(squad_shift.squad_covering)
+    #         shift_str += '; '
+
+    #     print(f'{bcolors.OKGREEN}{sched_date.slot}{bcolors.ENDC} Tango: {bcolors.OKGREEN}{sched_date.tango} {shift_str} {bcolors.ENDC}')
+
+    # print('')
+    # slot_sel = prompt_menu('Select timeslot: ', timeslots+['Custom'])
+    # start = 0
+    # end = 0
+
+    # if slot_sel == 'Custom':
+    #     start = int(input('Start time: eg: 600: '))
+    #     end = int(input('End time: eg: 1800: '))
+    # else:
+    #     start = int(slot_sel.split('-')[0])
+    #     end = int(slot_sel.split('-')[1])
+
+    # squad_sel = int(prompt_menu('Squad? ', ['34', '35', '42', '43', '54']))
+    # print(f'Going to {action} squad: {squad_sel} to slot: {slot_sel}')
+
+    # if (is_audit):
+    #     request_source = prompt_menu('Request source: ', ['[g] GroupMe', '[t] Text', '[e] Email', '[o] Other'])
+    #     if request_source == 'Other':
+    #         request_source = input('Enter source: ')
+
+    #     reason = input('Reason: ')
+
+    #     options.requested_by = request_source or ''
+    #     options.reason = reason or ''
+
+    # changes = []
+    # changes.append(ModifyShiftRequest(start, end, squad_sel, 77, options))
+    # collab_cal_manager.add_remove_shifts(target_date, changes, territory_map, is_audited=is_audit,
+    #     prompt
+
+def manually_adjust_territories():
+    os.system('clear')
+    print(f'{bcolors.OKGREEN}Manually Adjust Territories{bcolors.ENDC}')
+
+    target_date = get_target_date()
+    sched_dates = collab_cal_manager.get_day_from_calendar(target_date)
+    timeslots = []
+    for _sched_date in sched_dates:
+        sched_date: SchedDate = _sched_date
+
+        timeslots.append(sched_date.slot)
+        shift_str = ''
+        shift_str += f'{bcolors.OKGREEN}{sched_date.slot}{bcolors.ENDC} '
+        for _squad_shift in sched_date.squads:
+            squad_shift: SquadShift = _squad_shift
+            shift_str += f'{bcolors.REVGREEN}{squad_shift.squad}{bcolors.ENDC} '
+            shift_str += f'{bcolors.OKGREEN}'
+            if squad_shift.number_of_trucks > 1:
+                shift_str += f' (Trucks: {squad_shift.number_of_trucks})'
+            shift_str += str(squad_shift.squad_covering)
+            shift_str += '; '
+        
+        print(shift_str)
+
+    if len(timeslots) == 0:
+        print(f'{bcolors.FAIL}No shifts found for {target_date}{bcolors.ENDC}')
+        return
+    elif len(timeslots) == 1:
+        idx = 0
+        start = int(timeslots[0].split('-')[0])
+        end = int(timeslots[0].split('-')[1])
+    else:
+        idx, start, end = prompt_for_slot(timeslots, allow_for_custom=False)
+    
+    # print(f'Selected slot: {timeslots[idx]} start: {start} end: {end}')
+    # print(sched_dates[idx])
+
+    squads = set()
+    for _squad in sched_dates[idx].squads:
+        squad: SquadShift = _squad
+        squads.add(squad.squad)
+
+    if len(squads) == 1:
+        os.system('clear')
+        print(f'{bcolors.FAIL}Only one squad: {squads}.  Nothing to do{bcolors.ENDC}')
+        return
+
+    squad_selected = int(prompt_menu('Select squad to adjust', [str(squad) for squad in squads]))
+    print(f'Selected squad: {squad_selected}')
+    territory_key = ','.join([str(i) for i in squads])
+    print(f'Default territories: {territory_map[territory_key]}')
+
+    available_territories = ['34', '35', '42', '43', '54']
+    override_map = select_territories(squad_selected, squads, available_territories)
+
+    # Confirm new territories
+    os.system('clear')
+    print(f'New territories: {override_map}')
+    confirm = input('Confirm new territories? [y]/n ')
+    if len(confirm) == 0 or confirm.lower() == 'y':
+        ovr = {}
+        for key, value in override_map.items():
+            ovr[key] = [int(terr) for terr in value]
+        # print(f'Override map: {ovr}')
+        # print(f'To apply to: {sched_dates[idx]}')
+        collab_cal_manager.adjust_territories(target_date, sched_dates, idx, ovr)
+        # collab_cal_manager.adjust_territories(target_date, start, end, override_map)
+
+
+def select_territories(squad_to_select, squads, all_territories):
+    """
+    Select territories for squads.  squad_to_select is the squad that is being adjusted, squads is the list of all squads
+    available_territories is the list of all available territories
+
+    if there are only two squads, the user will be prompted to only select the territories for the squad to select, and the other will be inferred
+    """
+    available_territories = all_territories[:]
+    override_map = {}
+    os.system('clear')
+    prompt = f'Select territories for squad: {squad_to_select}'
+    selected = prompt_menu_multiselect(prompt, available_territories, True)
+    selected_territories = [str(all_territories[terr]) for terr in selected]
+
+    override_map[squad_to_select] = selected_territories
+    available_territories = [terr for terr in available_territories if terr not in selected_territories]
+
+    if len(squads) == 2:
+        other_squad = [squad for squad in squads if squad != squad_to_select][0]
+        override_map[other_squad] = available_territories
+    else:
+        for squad in list(squads)[:-1]:
+            if squad != squad_to_select:
+                other_squad = squad
+                selected = prompt_menu_multiselect(f'Select territories for squad: {other_squad}', available_territories, True)
+                selected_territories = [str(available_territories[terr]) for terr in selected]
+                override_map[other_squad] = selected_territories
+                available_territories = [terr for terr in available_territories if terr not in selected_territories]
+        override_map[list(squads)[-1]] = available_territories
+
+    return override_map
+
+
+def prompt_for_slot(timeslots, allow_for_custom=True):
+    """
+    Prompt for two integers representing start and end.  
+    Return tuple [idx, start, end]
+    Note: If Custom is selected, the user will be prompted for start and end, and the index will be -1
+    """
+    if allow_for_custom:
+        slot_sel = prompt_menu('Select timeslot: ', timeslots+['Custom'])
+    else:
+        slot_sel = prompt_menu('Select timeslot: ', timeslots)
+
+    if slot_sel == 'Custom':
+        idx = -1
+        start = int(input('Start time: eg: 600: '))
+        end = int(input('End time: eg: 1800: '))
+    else:
+        idx = timeslots.index(slot_sel)
+        start = int(slot_sel.split('-')[0])
+        end = int(slot_sel.split('-')[1])
+
+    return (idx, start, end)
+
+
 
 def main(environment=None, target_date=None):
     global collab_cal_manager
@@ -454,6 +640,8 @@ def main(environment=None, target_date=None):
         selection = prompt_menu('Main actions', options)
     else:
         options = [
+            "[0] Manually Adjust Territories",
+            "[b] Bulk Add/Remove",
             "[x] No Crew", 
             "[0] Remove Crew (No Audit)",
             "[z] Obliterate Crew (remove with no Audit)",
@@ -497,6 +685,10 @@ def main(environment=None, target_date=None):
             tally_shifts(save_tally=True)
         case 'Populate Day Headers':
             populate_day_headers()
+        case 'Bulk Add/Remove':
+            bulk_add_remove()
+        case 'Manually Adjust Territories':
+            manually_adjust_territories()
         case '_':
             print('Invalid menu option!!')
 
@@ -529,14 +721,14 @@ if __name__ == '__main__':
 
     if args.capture_month:
         os.system('clear')
-        collab_cal_manager = CollabCalendarManager('devo', '/Users/georgenowakowski/Downloads/collab_config')
-        collab_cal_manager.capture_month(select_month_tab())
+        collab_cal_manager = CollabCalendarManager('devo', config_dir)
+        collab_cal_manager.capture_month(select_target_tab())
         sys.exit()
 
     if args.restore_month:
         os.system('clear')
-        collab_cal_manager = CollabCalendarManager('devo', '/Users/georgenowakowski/Downloads/collab_config')
-        collab_cal_manager.restore_month(select_month_tab())
+        collab_cal_manager = CollabCalendarManager('devo', config_dir)
+        collab_cal_manager.restore_month(select_target_tab())
         sys.exit()
 
     # if args.build_tests:
