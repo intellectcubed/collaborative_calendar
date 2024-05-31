@@ -16,16 +16,18 @@ import os
 import sys
 import time
 import re
+from global_testing_state import GlobalTestState
 from models import ModifyOptions, ModifyShiftRequest, SchedDate, SquadShift
 from collab_cal_mgr import CollabCalendarManager
 from calendar_slot_utils import split_timeslot
 from datetime import datetime
 from calendar import monthrange
+from test.src.decorators.shift_testing_capture import shift_testing_capture
 
 collab_cal_manager: CollabCalendarManager = None
 current_tab: str = None
 territory_map = None
-config_dir = '/Users/gman/Downloads/collab_config'
+config_dir = '~/Downloads/collab_config'
 target_date = None
 target_tab = None
 args = None
@@ -141,17 +143,11 @@ def build_calendar():
     monthrange = calendar.monthrange(target_date.year, target_date.month)
     for row in rows:
         if encountered_first_day == False:
-            if row[0] == target_tab:
+            if row[2] == first_weekday_of_month:
                 encountered_first_day = True
             else:
-                print(f'skipping row month: {row[0]} target_tab: {target_tab}')
+                print(f'skipping row day: {row[2]} first_weekday_of_month: {first_weekday_of_month}')
                 continue
-
-            # if row[2] == first_weekday_of_month:
-            #     encountered_first_day = True
-            # else:
-            #     print(f'skipping row day: {row[2]} first_weekday_of_month: {first_weekday_of_month}')
-            #     continue
         # break if row is empty
         if is_row_empty(row):
             break
@@ -169,7 +165,7 @@ def build_calendar():
 
         start, end = split_timeslot(row[3])
         for squad in row[4:]:
-            changes.append(ModifyShiftRequest(start, end, int(squad), 77, ModifyOptions(is_add=True)))
+            changes.append(ModifyShiftRequest(start, end, int(squad), 77, ModifyOptions(is_add=True, audit=False)))
 
     # Now apply the changes
     day = 0
@@ -252,11 +248,6 @@ def modify_crew(options: ModifyOptions, is_audit=True):
     changes.append(ModifyShiftRequest(start, end, squad_sel, 77, options))
     collab_cal_manager.add_remove_shifts(target_date, changes, territory_map, is_audited=is_audit,
         prompt_method=prompt_tango_method)
-
-    if args.build_tests:
-        save_test_case(target_date, changes)
-
-
 
 
 def get_squads_on_duty(sched):
@@ -401,7 +392,7 @@ def quick_test():
 
 
 def prompt_for_environment():
-    env_sel = prompt_menu('Select environment', ['[d] Devo', '[p] Prod'])
+    env_sel = prompt_menu('Select environment', ['[d] Devo', '[p] Prod', '[t] Test'])
     return env_sel.lower()
 
 
@@ -701,7 +692,6 @@ def prompt_for_slot(timeslots, allow_for_custom=True):
     return (idx, start, end)
 
 
-
 def main(environment=None, target_date=None):
     global collab_cal_manager
     global territory_map
@@ -733,7 +723,7 @@ def main(environment=None, target_date=None):
         selection = prompt_menu('Main actions', options)
     else:
         options = [
-            "[0] Manually Adjust Territories",
+            "[m] Manually Adjust Territories",
             "[b] Bulk Add/Remove",
             "[x] No Crew", 
             "[0] Remove Crew (No Audit)",
@@ -745,6 +735,18 @@ def main(environment=None, target_date=None):
             "[s] Tally Shifts"
         ]
         selection = prompt_menu('Main actions', options)
+
+    os.system('clear')
+    if args.build_tests:
+        test_id = f'Test_{int(time.time())}'
+        print(f'{bcolors.REVGREEN}Build Test Mode{bcolors.ENDC}')
+        print(f'{bcolors.OKCYAN}Enter test id){bcolors.ENDC}')
+        _test_id = input(f'{bcolors.OKCYAN}or enter to accept default: {test_id} {bcolors.ENDC}')
+        if len(_test_id) > 0:
+            test_id = _test_id.replace(' ', '_')
+        
+        GlobalTestState.getInstance().set_test_id(test_id)
+
 
     os.system('clear')
 
@@ -787,7 +789,7 @@ def main(environment=None, target_date=None):
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Collaborative Calendar Interactive')
-    parser.add_argument('--environment', type=str, nargs='?', default=None, help='Environment [devo | prod]')
+    parser.add_argument('--environment', type=str, nargs='?', default=None, help='Environment [devo | prod | test]')
     parser.add_argument('--date', type=str, nargs='?', default=None, help='Date (yyyyMMdd)')
     parser.add_argument('--build_tests', action='store_true', help='Save commands into a test file')
     parser.add_argument('--run_tests', type=str, nargs='?', default=None, help='Test file to use')
@@ -809,7 +811,6 @@ if __name__ == '__main__':
     python collab_i.py devo 20230820
     
     """
-
     args = parse_args()
 
     if args.capture_month:
@@ -824,11 +825,8 @@ if __name__ == '__main__':
         collab_cal_manager.restore_month(select_target_tab())
         sys.exit()
 
-    # if args.build_tests:
-    #     os.system('clear')
-    #     collab_cal_manager = CollabCalendarManager('devo', '/Users/georgenowakowski/Downloads/collab_config')
-    #     collab_cal_manager.build_tests(select_tab())
-    #     sys.exit()
+    if args.build_tests:
+        GlobalTestState.getInstance().set_test_capture_mode(True)
 
     # Proceed with interactive mode
 
@@ -838,7 +836,7 @@ if __name__ == '__main__':
     # If environment provided on command line, use that environment
     if args.environment:
         environment = args.environment.lower()
-        if environment not in ['devo', 'prod']:
+        if environment not in ['devo', 'prod', 'test']:
             print(f'Invalid environment: {environment}')
             sys.exit()
 
@@ -851,3 +849,6 @@ if __name__ == '__main__':
             sys.exit()
 
     main(environment, target_date)
+
+    # To invoke for testing: 
+    # python collab_i.py --environment test --build_tests

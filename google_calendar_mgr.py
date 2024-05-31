@@ -79,8 +79,11 @@ class GCal:
 
         if self.CALENDAR_SPREADSHEET_ID == PROD_COLLAB_CALENDAR_SPREADSHEET_ID:
             print(f'{bcolors.REVRED} PRODUCTION PRODUCTION PRODUCTION PRODUCTION PRODUCTION PRODUCTION PRODUCTION PRODUCTION {bcolors.ENDC}')
-        else:
+        elif self.CALENDAR_SPREADSHEET_ID == BETA_COLLAB_CALENDAR_SPREADSHEET_ID:
             print(f'{bcolors.REVGREEN} DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO DEVO {bcolors.ENDC}')
+        else:
+            print(f'Oops, spreadsheet id is: {spreadsheet_id}')
+            sys.exit(0)
 
 
     def get_creds(self):

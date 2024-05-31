@@ -6,7 +6,7 @@ from collab_cal_mgr import CollabCalendarManager
 day_width = 4
 day_height = 10
 days_per_row = 7
-config_dir = '/Users/gman/Downloads/collab_config'
+config_dir = '~/Downloads/collab_config'
 
 
 def find_bounds(month):
@@ -111,7 +111,7 @@ def read_month():
     """
 
     # read json from file
-    with open('/Users/gman/Downloads/collab_config/month_backup_April_2024.json', 'r') as file:
+    with open('~/Downloads/collab_config/month_backup_April_2024.json', 'r') as file:
         month = json.load(file)
 
     # calendar_coord = find_bounds(month)

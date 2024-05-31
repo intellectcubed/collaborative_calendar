@@ -12,10 +12,11 @@ from bcolors import bcolors
 from calendar import monthrange
 import traceback
 from google_calendar_mgr import PROD_COLLAB_CALENDAR_SPREADSHEET_ID, BETA_COLLAB_CALENDAR_SPREADSHEET_ID, GCal
+from ersats_google_calendar_mgr import ErsatsGCal
+from test.src.decorators.shift_testing_capture import shift_testing_capture
 
 
 class CollabCalendarManager:
-
 
     def __init__(self, environment, config_dir, interactive_mode=True):
         self.interactive_mode = interactive_mode
@@ -23,8 +24,12 @@ class CollabCalendarManager:
 
         if environment == 'prod':
             self.gcal = GCal(PROD_COLLAB_CALENDAR_SPREADSHEET_ID)
-        else:
+        elif environment == 'devo':
             self.gcal = GCal(BETA_COLLAB_CALENDAR_SPREADSHEET_ID)
+        elif environment == 'test':
+            self.gcal = ErsatsGCal('TEST')
+        else:
+            raise Exception(f'Invalid environment passed to CollabCalendarManager: {environment}')
 
 
     def set_calendar_tab(self, target_tab):
@@ -126,11 +131,12 @@ class CollabCalendarManager:
         return count
 
 
+    @shift_testing_capture
     def fix_tangos(self, shifts, prompt_method):
         """
-        Iterate over the shifts.  
+        Iterate over the shifts.  If any shifts have an unassigned Tango, prompt the user to assign it
+        Returns the updated shifts
         """
-
         for _shift in shifts:
             shift: SchedDate = _shift
             squad_array = self.to_squad_array(shift.squads)
@@ -144,13 +150,13 @@ class CollabCalendarManager:
                         shift.tango = prompt_method(start, end, squad_array)
             else:
                 if shift.tango not in squad_array:
-                    print(f'{bcolors.FAIL}Tango is not in the squad list for: {shift.slot} {bcolors.ENDC}')
                     if self.get_number_of_squads(shift.squads) == 1:
                         shift.tango = shift.squads[0].squad
                     else:
                         if prompt_method is not None:
                             start, end = shift.slot.split('-')
                             shift.tango = prompt_method(start, end, squad_array)
+        return shifts
 
 
     def fill_in_days(self, first_offset, num_days):
@@ -160,13 +166,12 @@ class CollabCalendarManager:
 
         return days
 
-
+    @shift_testing_capture
     def add_remove_shifts(self, target_date, changes, territory_map, is_audited=False,
                           initial_build=False, prompt_method=None, territory_overrides=None):
         """
         changes is a list of ModifyShiftRequest requests
         """
-        print(f'Processing date: {datetime.datetime.strftime(target_date, "%m/%d/%Y")}')
         if initial_build:
             matrix = build_day()
             tango_array = build_tango_slots()
@@ -287,9 +292,7 @@ class CollabCalendarManager:
         """ Saves a snapshot of the day to a file"""
 
         calendar_day_rows = pad_day_matrix(self.gcal.get_day_from_calendar(target_date))
-        print(f'Getting location using: {self.target_tab}, {target_date.month}, {target_date.day}')
         location = self.gcal.get_location(self.target_tab, target_date)
-        print(f'Got location: {location}')
         location = self.pad_location(location)
         
         snapshot = {
