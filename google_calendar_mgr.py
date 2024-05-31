@@ -205,6 +205,8 @@ class GCal:
         return f'{col_tuple[0]}{start_row}:{col_tuple[1]}{end_row}'
 
 
+    # def get_location(self, target_tab, target_date):
+    #     return f'{target_tab}!B6:AC65'
     def get_location(self, target_tab, target_date):
         return f'{target_tab}!{self.get_cell_range(target_date)}'
     
@@ -316,9 +318,15 @@ class GCal:
 
 
 if __name__ == '__main__':
+    gcal = GCal(BETA_COLLAB_CALENDAR_SPREADSHEET_ID)
 
+    gcal.set_calendar_tab('May 2024')
+    target_date = datetime(2024, 5, 12)
+    the_cal = gcal.get_day_from_calendar(target_date)
+    print(the_cal)
+    # One day retrieves: 
+    # [['1800 - 0600', '34\n[34, 42, 54]', '35\n[35, 43]']]
 
     
-    gcal = GCal('')
-    for i in range(1, 30+1):
-        print(f'{i} {gcal.get_cell_range(9, i, 2023)}')
+    # for i in range(1, 30+1):
+    #     print(f'{i} {gcal.get_cell_range(9, i, 2023)}')

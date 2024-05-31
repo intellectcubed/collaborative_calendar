@@ -57,6 +57,21 @@ def prompt_for_int(prompt, default_value=None):
         return int(val_in)
 
 
+def prompt_confirm(prompt=None):
+    """
+    Prompt for confirmation.  If message is not provided, use default message
+    If the user enters 'y' or nothing, return True, otherwise return False
+    """
+    if prompt is None:
+        prompt = 'Confirm?'
+    
+    confirm = input(f'{prompt} [y]/n ')
+    if len(confirm) == 0 or confirm.lower() == 'y':
+        return True
+    else:
+        return False
+
+
 def get_target_date():
     if target_date is not None:
         return target_date
@@ -126,11 +141,17 @@ def build_calendar():
     monthrange = calendar.monthrange(target_date.year, target_date.month)
     for row in rows:
         if encountered_first_day == False:
-            if row[2] == first_weekday_of_month:
+            if row[0] == target_tab:
                 encountered_first_day = True
             else:
-                print(f'skipping row day: {row[2]} first_weekday_of_month: {first_weekday_of_month}')
+                print(f'skipping row month: {row[0]} target_tab: {target_tab}')
                 continue
+
+            # if row[2] == first_weekday_of_month:
+            #     encountered_first_day = True
+            # else:
+            #     print(f'skipping row day: {row[2]} first_weekday_of_month: {first_weekday_of_month}')
+            #     continue
         # break if row is empty
         if is_row_empty(row):
             break
@@ -148,7 +169,7 @@ def build_calendar():
 
         start, end = split_timeslot(row[3])
         for squad in row[4:]:
-            changes.append(ModifyShiftRequest(start, end, int(squad), 77, ModifyOptions(is_add=True, audit=False)))
+            changes.append(ModifyShiftRequest(start, end, int(squad), 77, ModifyOptions(is_add=True)))
 
     # Now apply the changes
     day = 0
@@ -483,9 +504,81 @@ def bulk_add_remove():
     # collab_cal_manager.add_remove_shifts(target_date, changes, territory_map, is_audited=is_audit,
     #     prompt
 
+def get_selected_weekdays_for_month(target_month, selected_weekdays):
+    """
+    Get the selected weekdays for the month
+    """
+    days = []
+    for day in range(1, monthrange(target_month.year, target_month.month)[1] + 1):
+        if datetime(target_month.year, target_month.month, day).weekday() in selected_weekdays:
+            days.append(day)
+
+    return days
+
+def adjust_territories_match_multiple_days():
+    print(f'{bcolors.OKGREEN}Adjust Territories for Multiple Days{bcolors.ENDC}')
+    while True:
+        days_selected = prompt_menu_multiselect('Select days to adjust', ['Monday', 'Tuesday','Wednesday','Thursday','Friday','Saturday', 'Sunday', 'Any Day'], True)
+        if len(days_selected) == 0:
+            print(f'{bcolors.FAIL}No days selected{bcolors.ENDC}')
+        elif len(days_selected) > 1:
+            if 7 in days_selected:
+                print(f'{bcolors.FAIL}Cannot select Any Day with other days{bcolors.ENDC}')
+            else:
+                break
+        else:
+            break
+
+    slots = []
+    if prompt_confirm('Filter by slots?'):
+        match_slots = ['0600-1800', '1800-0600']
+        slots_selected = prompt_menu_multiselect('Select slots', match_slots, True)
+        if len(slots_selected) > 0:
+            slots = [match_slots[slot_idx] for slot_idx in slots_selected]
+
+    target_month_year = datetime.strptime(target_tab, '%B %Y')
+    if 7 in days_selected:
+        print(f'{bcolors.OKGREEN}Any Day selected{bcolors.ENDC}')
+        target_days = list(range(1, monthrange(target_month_year.year, target_month_year.month)[1] + 1))
+    else:
+        target_days = get_selected_weekdays_for_month(target_month_year, days_selected)
+
+    while True:
+        all_squads = ['34', '35', '42', '43', '54']
+        squads = prompt_menu_multiselect('Select Squads', all_squads, True)
+        if len(squads) == 0:
+            print(f'{bcolors.FAIL}No squads selected{bcolors.ENDC}')
+        elif len(squads) == 1:
+            print(f'{bcolors.FAIL}Only one squad selected{bcolors.ENDC}')
+        elif len(squads) > 3:
+            print(f'{bcolors.FAIL}Please select 2 or 3 squads{bcolors.ENDC}')
+        else:
+            squads = [all_squads[squad_idx] for squad_idx in squads]
+            break
+
+    override_map = select_territories(squads[0], squads, all_squads)
+
+    print(f'Will adjust territories for days: {target_days} Looking in slots: {slots} for squads: {squads} to territories: {override_map}')
+    if not prompt_confirm():
+        return
+
+
 def manually_adjust_territories():
     os.system('clear')
     print(f'{bcolors.OKGREEN}Manually Adjust Territories{bcolors.ENDC}')
+
+    # =====================================================================
+    # =====================================================================
+    # TODO: Change this so that you can select a single day or multiple days
+    # =====================================================================
+    # =====================================================================
+
+    selection = prompt_menu('Adjust Single or Multiple days', ['[s] Single', '[m] Multiple'])
+    print(f'Selection: {selection}')
+    if selection == 'Single':
+        adjust_single_day()
+    else:
+        adjust_territories_match_multiple_days()
 
     target_date = get_target_date()
     sched_dates = collab_cal_manager.get_day_from_calendar(target_date)
