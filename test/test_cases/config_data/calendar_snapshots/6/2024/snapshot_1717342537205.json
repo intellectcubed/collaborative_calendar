@@ -1,0 +1,998 @@
+{
+    "1": [
+        {
+            "1": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            35,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "2": [
+        {
+            "2": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "2": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "3": [
+        {
+            "3": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "3": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            "All"
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "4": [
+        {
+            "4": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "5": [
+        {
+            "5": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 34,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "6": [
+        {
+            "6": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 34,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "7": [
+        {
+            "7": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "8": [
+        {
+            "8": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43,
+                            54
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "8": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            "All"
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "9": [
+        {
+            "9": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            "All"
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            "All"
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "9": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43,
+                            54
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "9": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "10": [
+        {
+            "10": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "10": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            "All"
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "11": [
+        {
+            "11": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "12": [
+        {
+            "12": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 34,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "13": [
+        {
+            "13": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 34,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "14": [
+        {
+            "14": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 34,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "15": [
+        {
+            "15": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            35,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "16": [
+        {
+            "16": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "16": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "17": [
+        {
+            "17": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "17": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            "All"
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "18": [
+        {
+            "18": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "19": [
+        {
+            "19": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 34,
+                        "trucks": 1,
+                        "coverage": [
+                            "All"
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "20": [
+        {
+            "20": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 34,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "21": [
+        {
+            "21": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "22": [
+        {
+            "22": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43,
+                            54
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "22": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            "All"
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "23": [
+        {
+            "23": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            "All"
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            "All"
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "23": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43,
+                            54
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "23": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "24": [
+        {
+            "24": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    }
+                ]
+            }
+        },
+        {
+            "24": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            "All"
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "25": [
+        {
+            "25": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "26": [
+        {
+            "26": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 34,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 54,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "27": [
+        {
+            "27": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 34,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42
+                        ]
+                    },
+                    {
+                        "squad": 43,
+                        "trucks": 1,
+                        "coverage": [
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "28": [
+        {
+            "28": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 34,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            54
+                        ]
+                    },
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            35,
+                            42,
+                            43
+                        ]
+                    }
+                ]
+            }
+        }
+    ],
+    "29": [
+        {
+            "29": {
+                "tango": null,
+                "slots": [
+                    {
+                        "squad": 35,
+                        "trucks": 1,
+                        "coverage": [
+                            34,
+                            35,
+                            43
+                        ]
+                    },
+                    {
+                        "squad": 42,
+                        "trucks": 1,
+                        "coverage": [
+                            42,
+                            54
+                        ]
+                    }
+                ]
+            }
+        }
+    ]
+}
