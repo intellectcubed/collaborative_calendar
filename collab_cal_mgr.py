@@ -1,3 +1,4 @@
+import time
 from calendar_slot_utils import add_to_calendar, build_tango_slots, remove_from_calendar, get_slots, build_day, add_tango_to_calendar
 from calendar_formatter import google_to_shifts, day_from_shifts, to_squad_shifts, shifts_to_google, pad_day_matrix, CALENDAR_ROWS, CALENDAR_COLS
 from models import ModifyShiftRequest, SchedDate, SquadContacts, SquadShift, MAX_TRUCKS_PER_SHIFT, squads
@@ -24,12 +25,16 @@ class CollabCalendarManager:
 
         if environment == 'prod':
             self.gcal = GCal(PROD_COLLAB_CALENDAR_SPREADSHEET_ID)
+            self.master_gcal = GCal(PROD_COLLAB_CALENDAR_SPREADSHEET_ID)            
         elif environment == 'devo':
             self.gcal = GCal(BETA_COLLAB_CALENDAR_SPREADSHEET_ID)
+            self.master_gcal = GCal(BETA_COLLAB_CALENDAR_SPREADSHEET_ID)
         elif environment == 'test':
             self.gcal = ErsatsGCal('TEST')
         else:
             raise Exception(f'Invalid environment passed to CollabCalendarManager: {environment}')
+        
+        self.master_gcal.set_calendar_tab('Master')
 
 
     def set_calendar_tab(self, target_tab):
@@ -109,6 +114,11 @@ class CollabCalendarManager:
         * shifts (list of SchedDate)
         """
         calendar_day_rows = self.gcal.get_day_from_calendar(target_date)
+        return google_to_shifts(calendar_day_rows, target_date)
+
+
+    def get_day_from_master(self, target_date):
+        calendar_day_rows = self.gcal.get_day_from_master(target_date)
         return google_to_shifts(calendar_day_rows, target_date)
 
 
@@ -446,47 +456,6 @@ class CollabCalendarManager:
         self.add_remove_shifts(override.target_date, [], territory_map, [override])
 
 
-    def apply_shift_changes(self, override: SchedDate):
-        # TODO: Write override to table (but not recursively!!)
-        # Go to shift, change the territories
-
-        day_shifts = get_google_day(override.target_date)
-        # shifts is a list of SchedDay objects
-        shifts = google_to_shifts(day_shifts, override.month, override.day, override.year)
-
-        # Apply changes
-        shift: SchedDate = find_shift(shifts, override.slot)
-        if shift is None:
-            message = f'Unable to find slot for: {override.slot}'
-            print(message)
-            raise Exception(message)
-
-        if len(shift.squads) != len(override.squads):
-            message = f'Request to change territory assignments fails because there are a different number of squads'
-            print(message)
-            raise Exception(message)
-        
-        confirm_messages = []
-        for squad_idx in range(len(shift.squads)):
-            orig_assignment: SquadShift = shift.squads[squad_idx]
-            new_assignment: SquadShift = override.squads[squad_idx]
-            if orig_assignment.squad != new_assignment.squad:
-                raise Exception('Squads for shift vs. override squads differ')
-            
-            confirm_messages.append(f'Squad: {orig_assignment.squad} {orig_assignment.squad_covering} ==> {new_assignment.squad_covering}')
-            orig_assignment.squad_covering = new_assignment.squad_covering
-
-        print(f'Applying Shift Override for: {override.slot}')
-        for msg in confirm_messages:
-            print(msg)    
-        confirmation_or_throw('Proceed with the following changes? ')
-                
-        # Apply Changes
-
-        formatted_rows = shifts_to_google(shifts)
-        write_google_day(override.month, override.day, override.year, formatted_rows)                 
-            
-
     def split_timeslot(self, timeslot):
         start = int(timeslot.split('-')[0].strip())
         end = int(timeslot.split('-')[1].strip())
@@ -688,6 +657,11 @@ class CollabCalendarManager:
         self.capture_month(target_tab)
 
         for day in range(1, monthrange(target_date.year, target_date.month)[1]+1):
+            # Throttle the requests to the calendar to avoid rate limiting
+            if day % 5 == 0:
+                # Sleep for 5 seconds
+                time.sleep(5)
+                
             target_date = target_date.replace(day=day)
             print(f'*** Assigning tango to day: {day}')
             day_rows = self.gcal.get_day_from_calendar(target_date)

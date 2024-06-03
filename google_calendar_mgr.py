@@ -214,6 +214,31 @@ class GCal:
         return f'{target_tab}!{self.get_cell_range(target_date)}'
     
 
+    def get_master_location(self, target_date):
+        """
+        Return the absolute location of the cell.  Assuming the caldendar starts at B6
+        This is useful when we want to retrieve from the Master tab.  December starts with a Sunday, and has 31 days
+        Therefore, translate the given date into a date in December, and then calculate the location, and return the data 
+        from that location on the master tab!
+        ** Clever **
+        """
+        def get_corresponding_day(target_date):
+            # Find the day of week for the first day of the month
+            first_day_of_month = datetime(target_date.year, target_date.month, 1)
+            # Get the day of week of the first day of the month
+            day_of_week = first_day_of_month.weekday()
+            # print(f'First day of month: {first_day_of_month} day of week: {day_of_week}')
+            corresponding_day = target_date.day+day_of_week+1
+
+            if corresponding_day > 31:
+                corresponding_day = target_date.weekday() + 2
+
+            return corresponding_day
+
+        target_date = datetime(2024, 12, get_corresponding_day(target_date))
+        return f'{"Master"}!{self.get_cell_range(target_date)}'
+
+
     def expand_location(self, location, rows):
         match = re.search(LOCATION_RE, location)
         if not match:
@@ -230,6 +255,9 @@ class GCal:
         location = self.get_location(self.calendar_tab, target_date)
         return self.get_data_from_calendar(location)
 
+    def get_day_from_master(self, target_date):
+        location = self.get_master_location(target_date)
+        return self.get_data_from_calendar(location)
 
     def write_day_to_calendar(self, target_date, rows):
         """Write a whole day to the calendar
@@ -320,13 +348,24 @@ class GCal:
             print(err)
 
 
-if __name__ == '__main__':
-    gcal = GCal(BETA_COLLAB_CALENDAR_SPREADSHEET_ID)
 
+
+if __name__ == '__main__':
+    # gcal = GCal(BETA_COLLAB_CALENDAR_SPREADSHEET_ID)
+
+    # gcal.set_calendar_tab('May 2024')
+    # target_date = datetime(2024, 5, 12)
+    # the_cal = gcal.get_day_from_calendar(target_date)
+    # print(the_cal)
+
+    gcal = GCal(PROD_COLLAB_CALENDAR_SPREADSHEET_ID)
     gcal.set_calendar_tab('May 2024')
-    target_date = datetime(2024, 5, 12)
-    the_cal = gcal.get_day_from_calendar(target_date)
-    print(the_cal)
+    target_date = datetime(2024, 11, 29)
+    print(gcal.get_master_location(target_date))
+
+
+
+
     # One day retrieves: 
     # [['1800 - 0600', '34\n[34, 42, 54]', '35\n[35, 43]']]
 

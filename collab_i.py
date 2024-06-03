@@ -27,7 +27,8 @@ from test.src.decorators.shift_testing_capture import shift_testing_capture
 collab_cal_manager: CollabCalendarManager = None
 current_tab: str = None
 territory_map = None
-config_dir = '~/Downloads/collab_config'
+# config_dir = '~/Downloads/collab_config'
+config_dir = '/Users/gman/Projects/Python/collaborative_calendar/test/test_cases/config_data'
 target_date = None
 target_tab = None
 args = None
@@ -129,50 +130,37 @@ def populate_day_headers():
 
 
 def build_calendar():
-    """Build calendar from the templates"""
     os.system('clear')
     target_date = datetime.strptime(target_tab, '%B %Y')
 
-    rows = collab_cal_manager.get_calendar_template()
-    # Columns: [month_year, day, day_of_week, slot, squad1, squad2, squad3, squad4]
-    first_weekday_of_month = find_day_of_week_for_first_day_of_month(target_date.year, target_date.month)
-    encountered_first_day = False
-    changes_by_day = []
-    prev_day = ''
-    day = 0
-    monthrange = calendar.monthrange(target_date.year, target_date.month)
-    for row in rows:
-        if encountered_first_day == False:
-            if row[2] == first_weekday_of_month:
-                encountered_first_day = True
-            else:
-                print(f'skipping row day: {row[2]} first_weekday_of_month: {first_weekday_of_month}')
-                continue
-        # break if row is empty
-        if is_row_empty(row):
-            break
+    # Iterate over each of the days of the month in target_date and call get_day_from_master for each day
+    """
+    get_day_from_master returns a collection of SchedDate objects
+    Example:
+    [SchedDate(target_date=datetime.datetime(2024, 7, 25, 0, 0), slot='1800 - 0600', tango=None, 
+    squads=[
+        SquadShift(squad=34, number_of_trucks=1, squad_covering=[], first_responder=False), 
+        SquadShift(squad=42, number_of_trucks=1, squad_covering=[], first_responder=False)
+    ])]
 
-        if row[2] != prev_day:
-            day += 1
-            #  break if day is greater than the number of days in the month
-            if day > monthrange[1]:
-                break
+    For each SchedDate, create a ModifyShiftRequest object for each squad in the SchedDate
+    """
+    for day in range(1, monthrange(target_date.year, target_date.month)[1] + 1):
+        # Throttle the calls so that we don't blow out the API
+        if day % 10 == 0:
+            # Sleep for 5 seconds
+            time.sleep(5)
 
-            changes = []
-            changes_by_day.append(changes)
-            prev_day = row[2]
-
-
-        start, end = split_timeslot(row[3])
-        for squad in row[4:]:
-            changes.append(ModifyShiftRequest(start, end, int(squad), 77, ModifyOptions(is_add=True, audit=False)))
-
-    # Now apply the changes
-    day = 0
-    for changes in changes_by_day:
-        day += 1
-        # print(f'Day: {day} Changes: {changes}')
-        collab_cal_manager.add_remove_shifts(target_date.replace(day=day), changes=changes, territory_map=territory_map, initial_build=True)
+        shifts_for_day = collab_cal_manager.get_day_from_master(target_date.replace(day=day))
+        slot_squads = []
+        for _sched_date in shifts_for_day:
+            sched_date: SchedDate = _sched_date
+            slot_start, slot_end = split_timeslot(sched_date.slot)
+            for _squad_shift in sched_date.squads:
+                squad_shift: SquadShift = _squad_shift
+                slot_squads.append(ModifyShiftRequest(slot_start, slot_end, squad_shift.squad, 77, ModifyOptions(is_add=True)))
+        collab_cal_manager.add_remove_shifts(target_date.replace(day=day), changes=slot_squads, territory_map=territory_map, initial_build=True)
+        print(f'Finished day: {day}')
 
 
 def is_row_empty(row: list):
@@ -794,6 +782,7 @@ def parse_args():
     parser.add_argument('--build_tests', action='store_true', help='Save commands into a test file')
     parser.add_argument('--run_tests', type=str, nargs='?', default=None, help='Test file to use')
     parser.add_argument('--capture_month', action='store_true', help='Capture Month')
+    parser.add_argument('--capture_master', action='store_true', help='Capture Master Tab')
     parser.add_argument('--restore_month', action='store_true', help='Restore Month')
     args = parser.parse_args()
     return args
@@ -818,6 +807,13 @@ if __name__ == '__main__':
         collab_cal_manager = CollabCalendarManager('devo', config_dir)
         collab_cal_manager.capture_month(select_target_tab())
         sys.exit()
+
+    if args.capture_master:
+        os.system('clear')
+        collab_cal_manager = CollabCalendarManager('devo', config_dir)
+        collab_cal_manager.capture_month("Master")
+        sys.exit()
+
 
     if args.restore_month:
         os.system('clear')
