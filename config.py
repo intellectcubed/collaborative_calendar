@@ -31,3 +31,15 @@ def is_run_in_progress():
 # -------------------------------------------
 # Test_results is a tuple consisting of the parameters that are passed into the write_day_to_calendar method
 test_results = None
+
+# -------------------------------------------
+# Calendar constants
+CALENDAR_ROWS = 9       # 9 rows per day (note, there are actually 10, but the first row is the day header)
+CALENDAR_COLS = 4       # 4 columns per day
+CALENDAR_OFFSET = 5     # Calendar starts on the 6th row
+CALENDAR_MONTH_BOUNDARIES = 'B6:AC65'
+
+
+# -------------------------------------------
+# All Squads
+all_squads = ['34', '35', '42', '43', '54']

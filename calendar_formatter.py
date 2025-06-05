@@ -120,6 +120,7 @@ def all_empty(row: SchedDate):
 
 
 def parse_slot(slot):
+    # print(f'Parsing slot: {slot}')
     slot_parts = slot.split('\n')
     if len(slot_parts) < 2:
         return (slot_parts[0], None)
@@ -188,8 +189,10 @@ def google_to_shifts(rows, target_date):
     ## Returns:
     * list (list of SchedDate)
     """
+    # print(f'Converting {rows} rows to shifts for date: {target_date}')
     shifts = []
     for row in rows:
+        # print(f'Processing row: {row}')
         if not all_empty(row):
             timeslot, tango = parse_slot(row[0])
             shift = []

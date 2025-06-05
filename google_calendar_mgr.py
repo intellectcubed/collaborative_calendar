@@ -11,13 +11,14 @@ import os
 from bcolors import bcolors
 import traceback
 import gspread
-import gspread_formatting as gsf 
+import gspread_formatting as gsf
+
+from models import Environment
+from spreadsheet_info import BETA_COLLAB_CALENDAR_SPREADSHEET_ID, PROD_COLLAB_CALENDAR_SPREADSHEET_ID 
 
 
 # The ID and range of a sample spreadsheet.
-PROD_COLLAB_CALENDAR_SPREADSHEET_ID = '1bhmLdyBU9-rYmzBj-C6GwMXZCe9fvdb_hKd62S19Pvs' # Prod
-BETA_COLLAB_CALENDAR_SPREADSHEET_ID = '1o_DZ96VdunbhXac8wYDdT_Xl6AR7Vgbuc6cwi5OWgs0' # Beta
-LOCATION_RE = "(\w+ \d{4})!(\D{1,2})(\d+):(\D{1,2})(\d+)"
+LOCATION_RE = r"(\w+ \d{4})!(\D{1,2})(\d+):(\D{1,2})(\d+)"
 
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 collab_tabs = []
@@ -44,6 +45,17 @@ class GCal:
     cols_per_day = 4
 
 
+    @classmethod
+    def create_gcal_for_environment(cls, environment, config_dir=None):
+        if environment == Environment.PRODUCTION:
+            gcal = cls(PROD_COLLAB_CALENDAR_SPREADSHEET_ID, config_dir)
+        elif environment == Environment.DEVO:
+            gcal = cls(BETA_COLLAB_CALENDAR_SPREADSHEET_ID, config_dir)
+        # elif environment == Environment.TEST:
+        #     gcal = ErsatsGCal('TEST')
+        else:
+            raise Exception(f'Invalid environment passed to CollabCalendarManager: {environment}')
+        return gcal
 
     def __init__(self, spreadsheet_id, config_dir=None):
         self.set_spreadsheet_id(spreadsheet_id)
@@ -321,6 +333,53 @@ class GCal:
 
 
     def read_territory_map(self):
+        """
+        Read the territory map from the tab named "Territories"
+        Territories tab has two groups of cells, one for 2 territories and one for 3 territories
+        
+        The format of the cells is:
+        Territories!B2:F11:
+        
+        Key,Squad,Covering,squad,Covering
+        Example: 34,35	34	34, 42, 54	35	35, 43
+        where: 
+        Key = 34,35
+        Squad = 34
+        Covering = 34, 42, 54
+        Squad = 35
+        Covering = 35, 43
+
+        Territories!H2:N11:
+        Key,Squad,Covering,squad,Covering
+        Example: 34,35,42	34	34, 42, 54	35	35, 43	42	42, 54
+        where:
+        Key = 34,35,42
+        Squad = 34
+        Covering = 34, 42, 54
+        Squad = 35
+        Covering = 35, 43
+        Squad = 42
+        Covering = 42, 54
+        The key is a comma separated list of the squads in the territory
+        The covering is a comma separated list of the squads that cover the territory
+        The squad is the squad that is in the territory
+
+        This method returns a dictionary of the territory map
+        The dictionary is in the format:
+        {
+            '34,35': {
+                34: [34, 42, 54],
+                35: [35, 43]
+            },
+            '34,35,42': {
+                34: [34, 42, 54],
+                35: [35, 43],
+                42: [42, 54]
+            }
+        }
+        The keys are the territory keys, and the values are dictionaries of the squads and their covering
+        squads
+        """
         territory_map = {}
         try:
             service = build('sheets', 'v4', credentials=self.get_creds())

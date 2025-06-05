@@ -2,4 +2,5 @@ venv/*
 .DS_Store
 credentials.json
 token.json
+spreadsheet_info.py
 __pycache__/
