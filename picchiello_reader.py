@@ -188,6 +188,9 @@ class PReader(BaseTemplateReader):
     
 
     def get_calendar_grid_week(self, tab: CalendarTab) -> int:
+        if tab.year != 2025:
+            print(f'Year {tab.year} is not supported. Only 2025 is supported.')
+            sys.exit()
         grid_weeks = 0
         for month in range(1, tab.month_as_int()):
             grid_weeks += self.calculate_number_of_week_rows(CalendarTab.from_date(date(day=1, month=month, year=tab.year)))

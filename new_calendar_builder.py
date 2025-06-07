@@ -239,8 +239,6 @@ class NewCalendarBuilder:
         #         sys.exit()
         # else:
         #     environment = self.prompt_for_environment()
-
-        print(self.args)
         environment = Environment(self.args.environment) if self.args.environment else self.prompt_for_environment()
         if self.args.tab:
             self.tab = CalendarTab.from_components(self.args.tab)
