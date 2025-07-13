@@ -78,3 +78,10 @@ python shift_testing_runner.py --test_id Test_1717120966
 ```
 
 You can leave off the --test-id parameter and all tests will be run.
+
+
+---
+## Running to create a new calendar: 
+```
+python new_calendar_builder.py --environment prod --tab 'August 2025' --reader Picchiello
+```

@@ -3,9 +3,11 @@ import calendar
 from datetime import datetime
 import csv
 import os
+from calendar_renderer import CalendarRenderer
 from config import CALENDAR_COLS
 from google_calendar_mgr import GCal
 from models import CalendarDay, CalendarTab, Environment, SchedDate, SquadShift
+from month_from_template import MonthFromTemplate
 from picchiello_reader import PReader
 from transactioned_calendar_delegate import CalendarDelegate
 from utils.cal_tab_utils import get_month_tabs
@@ -195,23 +197,28 @@ class NewCalendarBuilder:
         print(f'Populated day headers for month: {self.tab}')
 
         # Read the template file and build the month
-        calendar_days = self.template_reader.get_calendar_days(self.gcal, self.tab)
-        print(f'Read Calendar days from template: {len(calendar_days)} days')
+        template_days: list[CalendarDay] = self.template_reader.read_template(self.gcal)
+        calendar_days:list[CalendarDay] = MonthFromTemplate().template_to_month(template_days, self.tab)
+
         self.territory_manager.assign_territories(calendar_days)
-        print(f'Assigned territories to {len(calendar_days)} days')
+        # print(f'Assigned territories to {len(calendar_days)} days')
         TangoUtil().assign_tango(calendar_days, re_tango=True)
-        self.write_days_to_calendar(calendar_days)
-        # TODO: Clear the cell that contains the word 'Template' in it
-        # self.remove_template_cell()
-        print(f'Wrote {len(calendar_days)} days to calendar')
-        print(f'Finished building month: {self.tab}')
+
+        if self.args.preview:
+            print('Previewing calendar month:')
+            CalendarRenderer().render_calendar_month(calendar_days, self.tab)
+            print('Preview complete. No changes made to the calendar.')
+            return
+        else:
+            self.write_days_to_calendar(calendar_days)
+            print(f'Wrote {len(calendar_days)} days to calendar')
+            print(f'Finished building month: {self.tab}')
 
 
     def parse_args(self):
         parser = argparse.ArgumentParser(description='Collaborative Calendar Builder')
         parser.add_argument('--environment', type=str, default=None, help='Environment [devo | prod | test]')
-        # parser.add_argument('--month', type=int, help='January, February, etc')
-        # parser.add_argument('--year', type=int, help='2025, 2026, etc')
+        parser.add_argument('--preview', action='store_true', help='Preview the calendar without saving')
         parser.add_argument('--tab', type=str, help='Tab.  For example: "June 2025"')
         parser.add_argument('--template', type=str, help='Schedule template')
         parser.add_argument('--reader', type=str, help='Picchiello or CSV', default='Picchiello')

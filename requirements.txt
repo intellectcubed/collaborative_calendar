@@ -24,3 +24,4 @@ simple-term-menu==1.6.4
 gspread==6.1.0
 gspread-formatting==1.1.2
 dill==0.3.8
+rich==13.7.0

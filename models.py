@@ -17,6 +17,8 @@ class Environment(Enum):
 class CalendarDay:
     target_date: datetime
     slots: list # list of SchedDate objects
+    template_week_no: int = None  # week number in the template
+    template_day_of_week: int = None  # offset in the week (0-6)
 
 
 @dataclass
@@ -72,6 +74,28 @@ class CalendarTab(NamedTuple):
         return cls(date.strftime("%B"), date.year)
 
     @classmethod
+    def from_month_year(cls, month: int, year: int) -> 'CalendarTab':
+        """
+        Create a CalendarTab from month and year integers.
+        
+        Args:
+            month: Month as integer (1-12)
+            year: Year as integer
+            
+        Returns:
+            CalendarTab instance
+            
+        Raises:
+            ValueError: If month is not between 1 and 12
+        """
+        if not 1 <= month <= 12:
+            raise ValueError("Month must be between 1 and 12")
+        
+        # Convert month number to month name
+        month_name = datetime(year, month, 1).strftime("%B")
+        return cls(month_name, year)
+
+    @classmethod
     def from_components(cls, cal_tab: str) -> 'CalendarTab':
         try:
             date = datetime.strptime(cal_tab, "%B %Y")
@@ -83,7 +107,7 @@ class CalendarTab(NamedTuple):
     @classmethod
     def from_string(cls, cal_tab: str) -> 'CalendarTab':
         """
-        Create a CalendarTab from a string
+        Create a CalendarTab from a string: 'Month Year' (e.g., 'December 2024').
         """
         def validate_cal_tab(cal_tab: str) -> bool:
             pattern = r"^(January|February|March|April|May|June|July|August|September|October|November|December)\d{4}$"
